@@ -1,0 +1,62 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+
+# ---- Secrets & env ----
+.env
+*.env
+!.env.example
+*.key
+*.pem
+secrets/
+local.settings.json          # Azure Functions local secrets
+
+# ---- ML artefacts & data ----
+mlruns/
+mlartifacts/
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.ckpt
+data/raw/
+data/processed/
+!data/seed/.gitkeep
+*.duckdb
+*.duckdb.wal
+
+# ---- dbt ----
+target/
+dbt_packages/
+logs/
+
+# ---- Test / coverage ----
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.locust/
+
+# ---- Azure / Terraform / Bicep ----
+.azure/
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# ---- IDE / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- Docker ----
+*.log

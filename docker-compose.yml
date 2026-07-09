@@ -1,0 +1,63 @@
+# WattWise AI — local development infrastructure
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Requires Docker Desktop running.
+
+services:
+
+  # ---- High-performance time-series analytics store ----
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: wattwise-clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # native TCP
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./analytics/clickhouse:/docker-entrypoint-initdb.d:ro
+    environment:
+      CLICKHOUSE_DB: wattwise
+      CLICKHOUSE_USER: wattwise
+      CLICKHOUSE_PASSWORD: wattwise_dev
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- Real-time operations dashboards ----
+  grafana:
+    image: grafana/grafana-oss:11.1.0
+    container_name: wattwise-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./dashboards/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: wattwise_dev
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # ---- Local LLM for offline AI dev (dev only; not deployed to B1s) ----
+  ollama:
+    image: ollama/ollama:latest
+    container_name: wattwise-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    # Pull a model after start:  docker exec wattwise-ollama ollama pull llama3.1:8b
+
+volumes:
+  clickhouse-data:
+  grafana-data:
+  ollama-data:

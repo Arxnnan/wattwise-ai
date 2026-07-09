@@ -1,0 +1,61 @@
+name: WattWise AI CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: |
+          pip install ruff
+          ruff check . || true   # non-blocking until codebase is populated
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=. --cov-report=term-missing --cov-report=xml
+
+      # Coverage gate — enforce >=80% once the codebase is populated.
+      # Uncomment to make the gate blocking:
+      # - name: Enforce coverage >= 80%
+      #   run: pytest --cov=. --cov-fail-under=80
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  dbt-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: dbt deps + test
+        run: |
+          pip install dbt-core dbt-duckdb
+          echo "dbt test placeholder — runs once analytics/dbt project exists"
+          # cd analytics/dbt && dbt deps && dbt test

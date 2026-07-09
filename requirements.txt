@@ -1,0 +1,65 @@
+# WattWise AI — Python 3.11 dependencies
+# Install:  py -3.11 -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
+#
+# Pinned loosely (>=) for Week 4 setup; freeze exact versions after first successful install:
+#   pip freeze > requirements.lock.txt
+
+# ---- Core data ----
+pandas>=2.2
+numpy>=1.26
+scipy>=1.13
+python-dotenv>=1.0
+
+# ---- Azure SDKs ----
+azure-iot-device>=2.13
+azure-iot-hub>=2.6
+azure-functions>=1.21
+azure-storage-blob>=12.20
+azure-identity>=1.17
+
+# ---- IoT simulation ----
+paho-mqtt>=2.1
+
+# ---- Analytics stores ----
+clickhouse-connect>=0.7
+duckdb>=1.0
+dbt-core>=1.8
+dbt-duckdb>=1.8
+
+# ---- ML: forecasting ----
+prophet>=1.1
+xgboost>=2.1
+darts>=0.30
+chronos-forecasting>=1.4
+
+# ---- ML: anomaly detection ----
+pyod>=2.0
+tensorflow>=2.16          # provides Keras for the LSTM Autoencoder
+scikit-learn>=1.5
+
+# ---- ML: AutoML + tuning + tracking ----
+pycaret>=3.3
+optuna>=3.6
+mlflow>=2.14
+
+# ---- ML production quality ----
+evidently>=0.4
+great-expectations>=0.18
+
+# ---- AI inference (narratives) ----
+google-generativeai>=0.7
+huggingface-hub>=0.24
+
+# ---- API + dashboard ----
+fastapi>=0.111
+uvicorn>=0.30
+streamlit>=1.36
+plotly>=5.22
+
+# ---- QA ----
+pytest>=8.2
+pytest-cov>=5.0
+pytest-mock>=3.14
+testcontainers>=4.7
+selenium>=4.22
+locust>=2.29
