@@ -1,9 +1,24 @@
-# WattWise AI — local development infrastructure
+# WattWise AI — local development infrastructure (Azure-native-local stack)
 # Start:  docker compose up -d
 # Stop:   docker compose down
 # Requires Docker Desktop running.
 
 services:
+
+  # ---- IoT Hub replacement (MQTT broker) ----
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: wattwise-mosquitto
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # WebSocket
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ---- High-performance time-series analytics store ----
   clickhouse:
@@ -35,7 +50,7 @@ services:
     image: grafana/grafana-oss:11.1.0
     container_name: wattwise-grafana
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./dashboards/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -47,7 +62,15 @@ services:
       clickhouse:
         condition: service_healthy
 
-  # ---- Local LLM for offline AI dev (dev only; not deployed to B1s) ----
+  # ---- Local email capture (replaces Azure Communication Services) ----
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: wattwise-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+  # ---- Local LLM for offline AI dev (dev only) ----
   ollama:
     image: ollama/ollama:latest
     container_name: wattwise-ollama
@@ -55,7 +78,6 @@ services:
       - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
-    # Pull a model after start:  docker exec wattwise-ollama ollama pull llama3.1:8b
 
 volumes:
   clickhouse-data:
