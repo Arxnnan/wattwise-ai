@@ -98,10 +98,20 @@ def get_facility_demand_series(
     return series
 
 
+def generate_with_cost(days: int = 90, interval_minutes: int = 15,
+                       seed: int = 42) -> pd.DataFrame:
+    """Generate historical data including the Cost domain via ToU engine."""
+    from ml.cost_engine import add_cost_domain
+    df = generate_historical(days=days, interval_minutes=interval_minutes, seed=seed)
+    df = add_cost_domain(df)
+    return df
+
+
 if __name__ == "__main__":
-    print("Generating 90 days of historical data...")
-    df = generate_historical(days=90)
+    print("Generating 90 days of historical data (with cost domain)...")
+    df = generate_with_cost(days=90)
     print(f"Generated {len(df):,} records")
     print(df.groupby(["facility_id", "domain"])["value"].describe().round(3))
     anomalies = df[df["is_anomaly"]].shape[0]
     print(f"\nAnomalies injected: {anomalies} ({anomalies/len(df)*100:.1f}%)")
+    print(f"\nDomains: {sorted(df['domain'].unique())}")
