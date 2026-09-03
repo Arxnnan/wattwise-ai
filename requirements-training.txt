@@ -1,0 +1,30 @@
+# WattWise AI — TRAINING environment (Google Colab only)
+#
+# Install in a Colab notebook, NOT in the local .venv:
+#     !pip install -r requirements-training.txt
+#
+# Why this file exists
+# --------------------
+# PROJECT_BLUEPRINT.md §4 already splits the project in two:
+#   * TRAINING  — Chronos fine-tune, Darts ensemble, LSTM-AE, XGBoost — runs on
+#                 Google Colab free tier (12 GB RAM, T4 GPU). Artefacts export
+#                 to Azure Blob.
+#   * INFERENCE — runs on the Azure B1s VM / this laptop via FastAPI.
+#
+# PyCaret enforces that split at the dependency level: every pycaret 3.3.x
+# release pins pandas<2.2.0, which cannot co-exist with the pandas>=2.2 /
+# numpy 2.x that darts, tensorflow and prophet resolve to in requirements.txt.
+# Attempting both in one environment gives pip ResolutionImpossible.
+#
+# Colab gets its own throwaway environment per session, so the older pandas
+# here costs nothing. PyCaret remains part of the delivered stack for the RFP
+# tool list — it just runs on the training side of the line.
+
+pycaret>=3.3          # AutoML model screening / baseline comparison
+pandas<2.2            # forced by pycaret
+scikit-learn<1.6      # kept in pycaret's supported range
+
+# The models PyCaret screens against, at Colab-compatible versions:
+xgboost>=2.1
+optuna>=3.6
+mlflow>=2.14

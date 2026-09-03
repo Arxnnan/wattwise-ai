@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "WattWise"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b7e2c4a1-3f5d-4e8a-9c1b-2d6e8f4a7c3d"
+  }
+}

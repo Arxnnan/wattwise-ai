@@ -34,10 +34,8 @@ jobs:
         run: |
           pytest --cov=. --cov-report=term-missing --cov-report=xml
 
-      # Coverage gate — enforce >=80% once the codebase is populated.
-      # Uncomment to make the gate blocking:
-      # - name: Enforce coverage >= 80%
-      #   run: pytest --cov=. --cov-fail-under=80
+      - name: Enforce coverage >= 80%
+        run: pytest --cov=. --cov-fail-under=80
 
       - name: Upload coverage artifact
         if: always()

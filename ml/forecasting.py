@@ -154,13 +154,21 @@ class ForecastEngine:
 
     def forecast(self, facility_id: str, series: pd.Series,
                  horizon_hours: int = 24) -> pd.DataFrame:
-        """Return best available forecast for a facility."""
+        """Return best available forecast for a facility.
+
+        `series` is resampled to hourly here, once, for every caller: the
+        output is always hourly-spaced (see `_chronos_predict`/
+        `_statistical_fallback`), so a sub-hourly input would silently compare
+        "hour 1" predictions against readings from a few minutes in — this was
+        measured to inflate MAPE from ~2% to ~27% (docs/MODEL_EVIDENCE.md).
+        """
+        hourly_series = series.resample("1h").mean().dropna()
         with mlflow.start_run(run_name=f"forecast-{facility_id}", nested=True):
             mlflow.log_param("facility_id", facility_id)
             mlflow.log_param("horizon_hours", horizon_hours)
-            mlflow.log_param("series_length", len(series))
+            mlflow.log_param("series_length", len(hourly_series))
 
-            result = self.chronos.predict(series, horizon_hours)
+            result = self.chronos.predict(hourly_series, horizon_hours)
             mlflow.log_param("model_used", result["model"].iloc[0])
             log.info("Forecast for %s using model: %s", facility_id,
                      result["model"].iloc[0])

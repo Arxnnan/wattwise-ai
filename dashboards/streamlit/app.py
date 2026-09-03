@@ -52,7 +52,7 @@ def get_anomalies(facility_id: str, days: int):
     from ml.anomaly import AnomalyDetector
     df = generate_with_cost(days=days)
     series = get_facility_demand_series(df, facility_id)
-    detector = AnomalyDetector(contamination=0.02)
+    detector = AnomalyDetector()
     detector.fit(series)
     flags = detector.predict(series)
     scores = detector.score(series)

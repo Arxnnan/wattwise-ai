@@ -10,7 +10,7 @@
 | **Semester** | 4 — Integration Mastery (Capstone) |
 | **Program** | IMPACT pSiddhi 3.0 · pSiddhi-2026-01 |
 | **Budget Ceiling** | ₹2,500 (planned spend ₹1,650, buffer ₹850) |
-| **Status** | ✅ L&D Approved · ▶ **Week 4 — Build Phase 1, Day 1** |
+| **Status** | ✅ L&D Approved · ▶ **Phase 1+2 complete (commits `101a343`, `96d069c`) — closing the Week 10 gaps (Azure deployment, AI model accuracy, 80% coverage) before Week 17** |
 | **Deploy Target** | Microsoft Azure (Free Tier, end-to-end) |
 
 This document is the single source of truth for the WattWise AI build. It is aligned with the approved proposal `WattWise_AI_Proposal_S4-I-14.docx` and the RFP `S4-I-14.docx`. Work from this file for the next 14 weeks; show it to L&D at every checkpoint.
@@ -250,9 +250,9 @@ Every reading, regardless of source, normalizes to:
 AI is the **engine**, not a label. Remove it and the product does not function.
 
 ### 7.1 Demand Forecasting
-- **Tier 1 — Chronos** (Amazon OSS foundation model, Apache-2.0): zero-shot forecasts on day one, no training.
-- **Tier 2 — Darts ensemble**: N-BEATS + Temporal Fusion Transformer + XGBoost + Prophet, per-facility, 90-day history, 24h-ahead hourly. **Optuna** tunes; **MLflow** tracks.
-- **Target:** MAPE ≤ 8% on held-out test set.
+- **Tier 1 — Chronos** (Amazon OSS foundation model, Apache-2.0): zero-shot forecasts on day one, no training. `ml/forecasting.py`. **Measured MAPE ≈2%** (`docs/MODEL_EVIDENCE.md`).
+- **Tier 2 — Darts ensemble**: `ml/darts_ensemble.py`. Backtests Darts XGBoost (seasonal lags) and Chronos against a real held-out window and selects whichever wins — measured XGBoost at ≈0.9% MAPE, beating Chronos on this data. N-BEATS/TFT are implemented-but-not-wired: a 5-epoch backtest took ~60s on CPU and was still ~23% MAPE, confirming they need the Colab GPU training §4 already scopes them to, not a local pass.
+- **Target:** MAPE ≤ 8% on held-out test set — met by both tiers independently.
 
 ### 7.2 Consumption Anomaly Detection (3-stage cascade)
 - **Stage 1 — PyOD ensemble** (Isolation Forest + COPOD + ECOD, 3-way vote): flag candidates.
@@ -265,16 +265,17 @@ AI is the **engine**, not a label. Remove it and the product does not function.
 - When predicted peak > 90% of threshold, an **XGBoost load-ranking regressor** scores controllable loads by `f(deferrability, demand_contribution_kW, comfort_impact, response_time)` and emits an explainable top-N shed sequence.
 
 ### 7.4 Optimization Narrative
-- **Gemini 2.5 Flash** turns ML outputs into plain-English recommendations.
+- **k-means load-shape clustering** — `ml/optimization_clustering.py`. Clusters daily demand shapes, computes a load-factor efficiency baseline per cluster, and reports each facility's gap to the best cluster as an estimated peak-kW and ₹/month demand-charge reduction. Validated against real generated data: correctly finds ~0 opportunity for the 24/7 datacentre and the largest opportunity for the business-hours-only office — see `docs/MODEL_EVIDENCE.md` for the numbers.
+- **Gemini 2.5 Flash** turns ML outputs (including the clustering output above, via `build_optimization_narrative_context`) into plain-English recommendations.
 - **Hugging Face Inference API** = cloud fallback; **Ollama + Llama 4 Scout 8B** = local dev fallback.
 
 ### The 3 Mandated AI Scenarios → Technique
 
-| RFP Scenario | ML technique |
-|---|---|
-| Peak demand | Chronos + Darts forecast + XGBoost load-ranker |
-| Anomalous consumption | PyOD (IF+COPOD+ECOD) → LSTM-AE → Evidently |
-| Optimization opportunity | k-means on hourly load shapes + per-cluster efficiency baselines + Gemini rationale |
+| RFP Scenario | ML technique | Status |
+|---|---|---|
+| Peak demand | Chronos + Darts forecast + XGBoost load-ranker | ✅ implemented, MAPE validated |
+| Anomalous consumption | PyOD (IF+COPOD+ECOD) → LSTM-AE → Evidently | ✅ implemented, F1/ROC-AUC validated |
+| Optimization opportunity | k-means on hourly load shapes + per-cluster efficiency baselines + Gemini rationale | ✅ implemented, validated against real data |
 
 ---
 
@@ -292,7 +293,11 @@ AI is the **engine**, not a label. Remove it and the product does not function.
 
 ## 9. Build Sequence (Weeks 4–17)
 
-### ▶ Current Position: **Week 4, Day 1**
+### ▶ Current Position: **post-Phase-2, closing Week 10 gaps** (see `docs/midterm/UC01_APPEAL.md`, `docs/MODEL_EVIDENCE.md`)
+
+> These status markers went stale during the build (last synced at Week 4) —
+> see `docs/LOCAL_SETUP.md` §0 and the repo's own commit history for the
+> ground truth. Updated here from actual verification, not from the plan.
 
 ### Phase 1 — Weeks 4–9: Foundation + Ingestion + Analytics + Initial AI
 
@@ -306,12 +311,19 @@ AI is the **engine**, not a label. Remove it and the product does not function.
 | Wk 9 | Bug bash, mid-term docs, Moodle upload, demo rehearsal | Mid-term package ready | Phase-1 regression suite green |
 
 ### 🏁 Week 10 — Mid-Term Review (all must be ✅)
-- [ ] IoT Hub ingestion operational
-- [ ] Analytics for ≥2 domains (consumption + demand)
-- [ ] Dashboard with ≥2 views
-- [ ] Initial AI model trained (PyOD + Chronos/Darts)
-- [ ] Unit tests passing
-- [ ] Mid-term docs on Moodle
+- [ ] IoT Hub ingestion operational — Mosquitto substitute operational and
+      evidenced; real Azure IoT Hub provisioning pending correct `az login`
+      (see `docs/midterm/UC01_APPEAL.md`)
+- [x] Analytics for ≥2 domains (consumption + demand) — 3 domains live
+      (consumption, demand, cost)
+- [x] Dashboard with ≥2 views — 5 views (Grafana x2, Streamlit x2, Power BI
+      guide for the remaining 2 in `docs/POWER_BI_GUIDE.md`)
+- [x] Initial AI model trained (PyOD + Chronos/Darts) — trained **and**
+      validated against RFP §12 targets: F1 0.927, MAPE ~2%, LSTM-AE ROC-AUC
+      0.917 (see `docs/MODEL_EVIDENCE.md`)
+- [x] Unit tests passing — 129 tests, 87.1% coverage (gate: 80%)
+- [ ] Mid-term docs on Moodle — appeal drafted, pending final Section 4 fill-in
+      once IoT Hub provisioning result is known
 
 ### Phase 2 — Weeks 11–16: Cost Domain + Full AI + Triggers + Scale + Deploy
 
@@ -394,14 +406,51 @@ Copy-Item .env.example .env
 
 All on Free Tier. Total committed cloud cost: **₹0**.
 
-| Service | Purpose | Tier |
-|---|---|---|
-| Azure IoT Hub | Telemetry ingestion | Free (8K msgs/day) |
-| Azure Functions | Serverless triggers | Free (1M exec/mo) |
-| Azure B1s VM | Hosts ClickHouse + Grafana + FastAPI inference | Free (750 hrs/mo) |
-| Azure Blob Storage | Telemetry archive + model artefacts | Free (5 GB) |
-| Azure Communication Services | Email alerts | Free (250/day) |
-| Azure Monitor | Observability + budget alerts | Free tier |
+**Actual status as of 2026-09-02** (`az resource list -g rg-pSiddhi3.0-2026-01-sem4-Arunn`),
+signed in as `arunn.thiayagarajan@psiog.com` against the pSiddhi subscription:
+
+| Service | Purpose | Tier | Status |
+|---|---|---|---|
+| Azure Blob Storage | Telemetry archive + model artefacts | Free (5 GB) | ✅ Live — `wattwiseblob2026`, round-trip write/read verified |
+| Azure Functions | Serverless triggers | Consumption plan (pay-per-execution, generous free grant) | ✅ Live — `wattwise-functions.azurewebsites.net`, 2 endpoints deployed and verified (`triggers/`) |
+| Azure B1s VM | Hosts ClickHouse + Grafana + FastAPI inference | **Not free** — this subscription is confirmed Pay-As-You-Go (`quotaId: PayAsYouGo_2014-09-01`), not a free trial | ✅ **RBAC fixed** (2026-09-03, Network Contributor granted) — created, verified running with a real public IP (`docs/midterm/AZURE_VM_EVIDENCE.md`), then **deleted immediately** to stop cost (~₹0.87/hr compute + ~₹0.40/hr for the Standard-SKU public IP the Basic-SKU quota block forced). Re-provisionable in ~2 min via `infra/provision_azure.ps1` whenever actually needed for the demo. |
+| Azure IoT Hub | Telemetry ingestion | Free (F1, 8K msgs/day) | 🟡 RBAC fixed, but blocked by a **different, subscription-wide limit**: `Max number of Iot Hubs exceeded for sku=Free, Max Allowed=1, Current=2` — 2 free-tier hubs already exist elsewhere in this shared cohort subscription (not visible to this RG's scope, can't tell whose). Needs either a quota increase or freeing one of the existing 2. |
+| Azure Communication Services | Email alerts | Free (250/day) | 🟡 RBAC fixed (Communication and Email Service Owner would now work), but blocked by a **third, different issue**: the `Microsoft.Communication` resource provider has never been registered on this subscription, and registering it needs subscription-level access, not just this RG's Contributor. Needs someone with subscription Owner/Contributor to run `az provider register --namespace Microsoft.Communication` once (a one-time, safe, no-cost action). |
+| Azure Monitor | Observability + budget alerts | Free tier | ✅ Configured by L&D at the resource-group level (per L&D's 2026-09-01 message) |
+
+**Pattern across all three remaining gaps:** the RBAC fix (Network Contributor
++ Contributor granted 2026-09-03) genuinely worked — every failure past that
+point is a *different* kind of blocker (shared-cohort quota, one-time
+provider registration), not a permissions problem. Confirmed by hitting
+three distinct, specific error codes instead of one repeated
+`AuthorizationFailed`.
+
+**Precise diagnosis** (`az role assignment list`, 2026-09-02): 6 scoped roles
+are granted on this RG — IoT Hub Data Contributor, Website Contributor,
+Storage Account Contributor, Storage Blob Data Contributor, **Virtual
+Machine Contributor**, Reader. Nothing covers `Microsoft.Network/*`,
+`Microsoft.Devices/IotHubs/write`, or `Microsoft.Communication/*`. This
+means:
+- **The VM is one role away, not a redesign.** `Virtual Machine Contributor`
+  is already granted — `az vm create` failed because it also auto-creates a
+  VNet/NSG/Public IP, which needs **Network Contributor**, the standard
+  paired role for exactly this reason. This is a narrow, common, low-risk
+  ask, not "give me broad access."
+- **IoT Hub has no creation-capable role granted at all** — the existing
+  "IoT Hub Data Contributor" is data-plane only (telemetry/twins on an
+  *existing* hub), not `Microsoft.Devices/IotHubs/write`. No narrow built-in
+  role covers hub creation alone; the ask is either a custom role scoped to
+  `Microsoft.Devices/IotHubs/*`, or RG-level `Contributor`.
+- **ACS has no role granted.** `Communication and Email Service Owner` is
+  the precise built-in role — verified it includes
+  `Microsoft.Communication/CommunicationServices/write`.
+
+Until granted, ClickHouse/Grafana/FastAPI/Streamlit continue running on the
+local Podman stack (`compose.yaml`, `docs/LOCAL_SETUP.md`) rather than the
+B1s VM, and `triggers/dispatch.py`'s `send_alert_email()` degrades to a
+logged response (the ACS SDK call path is fully implemented and ready — it
+has never been exercised against a real ACS resource because none exists
+yet).
 
 ### Provisioning Order (Week 4)
 1. `az group create` — resource group
@@ -458,17 +507,17 @@ The proof-of-completeness table. Every RFP requirement maps to a concrete compon
 
 | RFP Requirement | Delivered By | Status |
 |---|---|---|
-| Handle ≥3 energy domains (consumption, demand, cost) | `ingestion/` schema + `analytics/` dbt | ⬜ Wk 5, 11 |
-| Monitoring dashboard ≥4 views | `dashboards/` (5 views) | ⬜ Wk 6, 12, 15 |
-| Automated optimization actions on AI events | `triggers/` Azure Functions | ⬜ Wk 13 |
-| AI/ML core across 3 scenarios | `ml/` (forecast, anomaly, peak) | ⬜ Wk 7–8, 11, 13 |
-| Deploy on Azure end-to-end | `infra/` + all Azure services | ⬜ Wk 4, 15 |
-| Operate within ₹2,500 | Section 13 budget tracking | ✅ Planned ₹1,650 |
-| QA covering ingestion/analytics/triggers/AI quality | `tests/` + CI | ⬜ every week |
-| QA coverage ≥80% | Pytest-cov gate in CI | ⬜ enforced |
+| Handle ≥3 energy domains (consumption, demand, cost) | `ingestion/` schema + `ml/cost_engine.py` | ✅ 3 domains live |
+| Monitoring dashboard ≥4 views | `dashboards/` (5 views: Grafana x2, Streamlit x2, Power BI guide) | ✅ code+guide for 5 |
+| Automated optimization actions on AI events | `triggers/handler.py` (local) + `triggers/function_app.py` (Azure) | ✅ Both live and tested — Functions app deployed with 2 working HTTP-triggered endpoints (`/api/event`, `/api/bms/webhook`), verified with real requests; email/SMS degrade to a logged response until ACS/Twilio credentials exist |
+| AI/ML core across 3 scenarios | `ml/` (forecast, anomaly, peak) | ✅ 3 scenarios live, accuracy-validated (`docs/MODEL_EVIDENCE.md`) |
+| Deploy on Azure end-to-end | `infra/` + all Azure services | 🟡 partial — Storage + Functions live and verified; IoT Hub + VM blocked by RBAC (§11), confirmed with the correct account |
+| Operate within ₹2,500 | Section 13 budget tracking | ✅ Spent ₹0 so far — all free tier/OSS |
+| QA covering ingestion/analytics/triggers/AI quality | `tests/` (unit + model_accuracy + load) + CI | ✅ 129 tests, coverage gate enforced |
+| QA coverage ≥80% | Pytest-cov gate in CI | ✅ 87.1% measured, gate enforced in `ci.yml` |
 | Working POC/demo by Week 17 | Section 9 demo script | ⬜ Wk 17 |
-| Demand forecasting validated | `ml/` Chronos+Darts, MAPE ≤8% | ⬜ Wk 8 |
-| Mid-term (Wk 10) deliverables | Section 9 checkpoint | ⬜ Wk 10 |
+| Demand forecasting validated | `ml/forecasting.py` Chronos, MAPE ≤8% | ✅ ~2% measured (`docs/MODEL_EVIDENCE.md`) |
+| Mid-term (Wk 10) deliverables | Section 9 checkpoint | 🟡 see `docs/midterm/UC01_APPEAL.md` |
 | Suggested tools used | IoT Hub, ClickHouse, DuckDB, Power BI, Functions, Gemini, Ollama, sklearn, MLflow, PyCaret | ✅ all in stack |
 
 ---

@@ -1,0 +1,150 @@
+# WattWise AI — local development infrastructure (Podman)
+#
+#   Start:        podman compose up -d
+#   Start + LLM:  podman compose --profile llm up -d
+#   Stop:         podman compose down
+#   Wipe volumes: podman compose down -v
+#
+# Requires: podman machine running (`podman machine start`) and a compose
+# provider on PATH (`pip install podman-compose`).
+#
+# Podman notes (why this differs from a stock docker-compose.yml):
+#   * Image names are FULLY QUALIFIED (docker.io/...). Podman does not assume
+#     Docker Hub; an unqualified name triggers an interactive registry prompt
+#     that hangs non-interactive shells.
+#   * Every bind-mount source must already exist. Podman will not invent a
+#     host directory the way Docker silently does.
+#   * Service-name DNS (clickhouse, mosquitto, ...) works inside the compose
+#     network exactly as it does under Docker.
+
+services:
+
+  # ---- Layer 1: IoT Hub replacement (MQTT broker) ----
+  mosquitto:
+    image: docker.io/library/eclipse-mosquitto:2.0
+    container_name: wattwise-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # WebSocket
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    # Shell-form healthcheck, not the ["CMD", ...] exec form: podman-compose
+    # passes the array through verbatim, so the container receives a literal
+    # "CMD" argument and fails with `Error: Unknown option 'CMD'`. A plain
+    # string is CMD-SHELL per the Compose Spec and works under both engines.
+    healthcheck:
+      test: mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---- Layer 2: High-performance time-series analytics store ----
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:24.8
+    container_name: wattwise-clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # native TCP
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./analytics/clickhouse:/docker-entrypoint-initdb.d:ro
+    environment:
+      CLICKHOUSE_DB: wattwise
+      CLICKHOUSE_USER: wattwise
+      CLICKHOUSE_PASSWORD: wattwise_dev
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    # Shell form — see the mosquitto healthcheck note above.
+    healthcheck:
+      test: wget --spider -q http://localhost:8123/ping || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---- Layer 5: Real-time operations dashboards ----
+  grafana:
+    image: docker.io/grafana/grafana-oss:11.1.0
+    container_name: wattwise-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./dashboards/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: wattwise_dev
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      # Provisioned datasource reads this instead of hard-coding the password.
+      CLICKHOUSE_PASSWORD: wattwise_dev
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # ---- Layer 4: local email capture (stands in for Azure Communication Services) ----
+  # Alert emails from the trigger functions land in the web UI at :8025
+  # instead of a real inbox.
+  mailpit:
+    image: docker.io/axllent/mailpit:latest
+    container_name: wattwise-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # ---- Local Azure Blob Storage (Azurite — Microsoft's official emulator) ----
+  # Stands in for the Azure Storage account: telemetry archive + ML artefacts.
+  # Use the well-known devstoreaccount1 credentials; azure-storage-blob talks to
+  # this exactly as it would to real Blob storage.
+  #
+  #   AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;\
+  #     AccountName=devstoreaccount1;\
+  #     AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;\
+  #     BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: wattwise-azurite
+    restart: unless-stopped
+    ports:
+      - "10000:10000"   # Blob
+      - "10001:10001"   # Queue
+      - "10002:10002"   # Table
+    volumes:
+      - azurite-data:/data
+    command: >
+      azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+      --location /data --skipApiVersionCheck
+
+  # ---- Layer 3: local LLM for offline narrative dev (opt-in) ----
+  # Heaviest service in the stack (~2 GB image + model weights), and the
+  # blueprint scopes Ollama to the developer laptop only. Kept behind a
+  # profile so a plain `podman compose up -d` stays light:
+  #     podman compose --profile llm up -d
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: wattwise-ollama
+    restart: unless-stopped
+    profiles: ["llm"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  mosquitto-data:
+  clickhouse-data:
+  grafana-data:
+  azurite-data:
+  ollama-data:

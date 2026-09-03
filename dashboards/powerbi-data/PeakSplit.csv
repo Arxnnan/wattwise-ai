@@ -1,0 +1,7 @@
+facility_id,rate_period,cost_inr
+datacentre,off_peak,1751264.871999997
+datacentre,peak,1419768.729499998
+office,off_peak,362751.8922999998
+office,peak,981580.5187000035
+warehouse,off_peak,1050550.391200005
+warehouse,peak,1395164.487499997

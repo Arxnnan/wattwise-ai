@@ -11,13 +11,29 @@ scipy>=1.13
 python-dotenv>=1.0
 
 # ---- Azure SDKs ----
-azure-iot-device>=2.13
+# azure-iot-device is deliberately NOT here. Every 2.13-2.14 release pins
+# paho-mqtt<2.0.0, but ingestion/simulator.py and ingestion/pipeline.py both
+# call mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, ...) — a paho-mqtt 2.x
+# API that does not exist in 1.x. Installing both breaks Layer 1 with
+# `AttributeError: module 'paho.mqtt.client' has no attribute
+# 'CallbackAPIVersion'`.
+#
+# It is also not imported anywhere in the codebase yet — local ingestion goes
+# through Mosquitto, not IoT Hub. When the real IoT Hub device client is
+# written (Wk 5 / deployment), install it in a separate environment, or port
+# the two call sites above to the paho-mqtt 1.x callback API.
+#     pip install "azure-iot-device>=2.13"   # forces paho-mqtt<2.0
 azure-iot-hub>=2.6
 azure-functions>=1.21
 azure-storage-blob>=12.20
 azure-identity>=1.17
+# Event Hubs-compatible endpoint — IoT Hub's MQTT broker doesn't support
+# SUBSCRIBE, so the read side (ingestion/pipeline_iot_hub.py) needs this
+# instead of paho-mqtt once a real hub exists.
+azure-eventhub>=5.12
 
 # ---- IoT simulation ----
+# 2.x required — see the CallbackAPIVersion note above.
 paho-mqtt>=2.1
 
 # ---- Analytics stores ----
@@ -30,6 +46,7 @@ dbt-duckdb>=1.8
 prophet>=1.1
 xgboost>=2.1
 darts>=0.30
+pytorch-lightning>=2.0   # darts' neural models (N-BEATS/TFT) need this explicitly
 chronos-forecasting>=1.4
 
 # ---- ML: anomaly detection ----
@@ -38,7 +55,11 @@ tensorflow>=2.16          # provides Keras for the LSTM Autoencoder
 scikit-learn>=1.5
 
 # ---- ML: AutoML + tuning + tracking ----
-pycaret>=3.3
+# NOTE: pycaret is NOT installable alongside this stack. Every 3.3.x release
+# pins pandas<2.2.0, which is mutually exclusive with pandas>=2.2 (and with
+# the numpy 2.x that darts / tensorflow / prophet now resolve to).
+# It lives in requirements-training.txt and runs in Google Colab, which is
+# where BLUEPRINT §4 already puts model training. See that file.
 optuna>=3.6
 mlflow>=2.14
 

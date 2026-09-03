@@ -1,0 +1,6 @@
+# Deployment package for the wattwise-functions app only — deliberately
+# minimal (Consumption-plan cold starts get worse with a heavy dependency
+# tree). NOT the same as the repo-root requirements.txt.
+azure-functions>=1.21
+azure-communication-email>=1.0.0
+twilio>=9.0.0

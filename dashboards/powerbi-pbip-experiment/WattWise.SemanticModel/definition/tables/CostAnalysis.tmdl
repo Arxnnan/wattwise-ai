@@ -1,0 +1,32 @@
+table CostAnalysis
+	column facility_id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: facility_id
+
+	column month
+		dataType: dateTime
+		formatString: Long Date
+		summarizeBy: none
+		sourceColumn: month
+
+	column total_cost_inr
+		dataType: double
+		summarizeBy: sum
+		formatString: "#,0.00"
+		sourceColumn: total_cost_inr
+
+	partition CostAnalysis = m
+		mode: import
+		source =
+				let
+				    Source = Json.Document(Web.Contents("http://172.19.250.245:8123/", [Query=[#"user"="wattwise", #"password"="wattwise_dev", #"query"="SELECT facility_id,toStartOfMonth(ts) AS month,sum(value) AS total_cost_inr FROM wattwise.telemetry WHERE domain='cost' GROUP BY facility_id,month ORDER BY month,facility_id FORMAT JSON"]])),
+				    data = Source[data],
+				    ToTable = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+				    Expanded = Table.ExpandRecordColumn(ToTable, "Column1", {"facility_id", "month", "total_cost_inr"}, {"facility_id", "month", "total_cost_inr"}),
+				    ChangedType = Table.TransformColumnTypes(Expanded,{{"facility_id", type text}, {"month", type date}, {"total_cost_inr", type number}})
+				in
+				    ChangedType
+
+	annotation PBI_ResultType = Table
+

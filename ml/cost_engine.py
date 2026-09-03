@@ -50,7 +50,17 @@ def consumption_to_cost(consumption_kwh: float, ts: datetime,
 
 def add_cost_domain(df: pd.DataFrame,
                     config: TouRateConfig = RATE_CONFIG) -> pd.DataFrame:
-    """Add cost rows to a telemetry DataFrame that has consumption rows."""
+    """Add ToU-priced cost rows to a telemetry DataFrame that has consumption rows.
+
+    Drops any pre-existing 'cost' domain rows first: `ml.data_generator
+    .generate_historical()` already stamps a flat-rate cost row per reading,
+    so calling this on its output without dropping first silently produced
+    TWO cost rows per reading (flat-rate + ToU) with different values —
+    genuinely double-counted if summed. `generate_with_cost()` (used by the
+    live Streamlit Cost Analysis view) calls this, so this bug wasn't
+    theoretical.
+    """
+    df = df[df["domain"] != "cost"]
     consumption_rows = df[df["domain"] == "consumption"].copy()
     if consumption_rows.empty:
         return df

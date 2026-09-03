@@ -15,7 +15,7 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-SEQ_LEN = 24  # 24 time steps (6 hours at 15-min intervals)
+SEQ_LEN = 4  # short window: a single-point spike must not get diluted across it
 THRESHOLD_PERCENTILE = 95  # flag top 5% reconstruction errors
 
 
@@ -37,8 +37,8 @@ class LSTMAutoencoder:
     Falls back to Z-score method if TensorFlow is unavailable.
     """
 
-    def __init__(self, seq_len: int = SEQ_LEN, latent_dim: int = 32,
-                 epochs: int = 20, batch_size: int = 64):
+    def __init__(self, seq_len: int = SEQ_LEN, latent_dim: int = 8,
+                 epochs: int = 30, batch_size: int = 64):
         self.seq_len = seq_len
         self.latent_dim = latent_dim
         self.epochs = epochs
@@ -54,6 +54,12 @@ class LSTMAutoencoder:
         try:
             import tensorflow as tf
             from tensorflow.keras import layers, Model
+
+            # Unseeded weight init made ROC-AUC swing ~0.80-0.92 run to run on
+            # identical data — fine for a demo, not for a CI gate that has to
+            # pass reliably. set_random_seed pins Python/NumPy/TF RNGs together.
+            tf.keras.utils.set_random_seed(42)
+            tf.config.experimental.enable_op_determinism()
 
             inputs = tf.keras.Input(shape=(self.seq_len, 1))
             # Encoder
@@ -85,7 +91,7 @@ class LSTMAutoencoder:
                       validation_split=0.1, verbose=0)
             self._model = model
             reconstructed = model.predict(X, verbose=0)
-            errors = np.mean(np.abs(X - reconstructed), axis=(1, 2))
+            errors = np.max(np.abs(X - reconstructed), axis=(1, 2))
             self._threshold = float(np.percentile(errors, THRESHOLD_PERCENTILE))
             self._fitted = True
             self._using_fallback = False
@@ -118,10 +124,13 @@ class LSTMAutoencoder:
         sequences, _, _ = _make_sequences(series, self.seq_len)
         X = sequences[:, :, np.newaxis]
         reconstructed = self._model.predict(X, verbose=0)
-        errors = np.mean(np.abs(X - reconstructed), axis=(1, 2))
+        errors = np.max(np.abs(X - reconstructed), axis=(1, 2))
 
-        # Align errors back to original series index
-        idx = series.index[self.seq_len:]
+        # Align each sequence's error to the LAST point actually inside that
+        # sequence (index i spans series[i : i+seq_len], so its last point is
+        # series.index[i + seq_len - 1] — not series.index[i + seq_len], which
+        # is the point one step after the window ends).
+        idx = series.index[self.seq_len - 1: -1]
         error_series = pd.Series(errors, index=idx, name="recon_error")
         confirmed = error_series > self._threshold
 
@@ -139,8 +148,8 @@ class LSTMAutoencoder:
         sequences, _, _ = _make_sequences(series, self.seq_len)
         X = sequences[:, :, np.newaxis]
         reconstructed = self._model.predict(X, verbose=0)
-        errors = np.mean(np.abs(X - reconstructed), axis=(1, 2))
-        idx = series.index[self.seq_len:]
+        errors = np.max(np.abs(X - reconstructed), axis=(1, 2))
+        idx = series.index[self.seq_len - 1: -1]
         return pd.Series(errors, index=idx, name="recon_error")
 
     def save(self, path: str | Path) -> None:

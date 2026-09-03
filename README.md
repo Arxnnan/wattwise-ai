@@ -10,9 +10,13 @@ An end-to-end, AI-core, Azure-deployed platform that ingests IoT smart-meter and
 
 ## Quickstart
 
+Local infra runs on **Podman** (not Docker). Full setup notes, the Azure tooling
+list, and known issues are in [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
+
 ```powershell
-# 1. Start Docker Desktop, then bring up local infra
-docker compose up -d
+# 1. Bring up local infra (Mosquitto + ClickHouse + Grafana + Mailpit)
+podman machine start
+podman compose up -d
 
 # 2. Create the Python 3.11 environment
 py -3.11 -m venv .venv
@@ -26,6 +30,16 @@ Copy-Item .env.example .env   # then fill in your keys
 # 4. Run tests
 pytest
 ```
+
+| Service | URL | Login |
+|---|---|---|
+| Grafana | http://localhost:3001 | `admin` / `wattwise_dev` |
+| ClickHouse | http://localhost:8123 | `wattwise` / `wattwise_dev` |
+| Mailpit (captured alerts) | http://localhost:8025 | — |
+| Mosquitto (MQTT) | `localhost:1883` | anonymous |
+
+> If those URLs don't respond, the WSL localhost relay is wedged — reach them on
+> the Podman VM's IP instead. See [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md) §2.
 
 ## Architecture (5 layers)
 

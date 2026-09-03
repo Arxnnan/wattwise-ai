@@ -1,0 +1,79 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.3.0/schema.json",
+  "name": "CostMatrix",
+  "position": {
+    "x": 40,
+    "y": 40,
+    "z": 0,
+    "width": 1200,
+    "height": 600,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": { "SourceRef": { "Entity": "CostAnalysis" } },
+                  "Property": "facility_id"
+                }
+              },
+              "queryRef": "CostAnalysis.facility_id",
+              "nativeQueryRef": "facility_id"
+            }
+          ]
+        },
+        "Columns": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": { "SourceRef": { "Entity": "CostAnalysis" } },
+                  "Property": "month"
+                }
+              },
+              "queryRef": "CostAnalysis.month",
+              "nativeQueryRef": "month"
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": { "SourceRef": { "Entity": "CostAnalysis" } },
+                      "Property": "total_cost_inr"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(CostAnalysis.total_cost_inr)",
+              "nativeQueryRef": "Sum of total_cost_inr"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "title": {
+              "expr": {
+                "Literal": { "Value": "'Cost Analysis — Monthly by Facility (INR)'" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

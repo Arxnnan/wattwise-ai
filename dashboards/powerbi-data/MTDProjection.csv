@@ -1,0 +1,4 @@
+facility_id,cost_mtd_inr,days_elapsed,days_in_month,projected_month_cost_inr
+office,43293.342799999984,3,30,432933.42799999984
+warehouse,73303.3433000001,3,30,733033.4330000009
+datacentre,89880.3859999999,3,30,898803.8599999989

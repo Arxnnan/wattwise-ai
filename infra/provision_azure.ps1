@@ -43,7 +43,7 @@ az vm create `
   --size Standard_B1s `
   --admin-username wattwiseadmin `
   --generate-ssh-keys `
-  --public-ip-sku Basic
+  --public-ip-sku Standard
 
 # Open ports
 az vm open-port --resource-group $RG --name "${PREFIX}-vm" --port 8123 --priority 100  # ClickHouse

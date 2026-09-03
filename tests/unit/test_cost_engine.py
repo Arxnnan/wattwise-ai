@@ -42,6 +42,35 @@ class TestCostEngine:
         assert (cost_rows["unit"] == "INR").all()
         assert (cost_rows["value"] >= 0).all()
 
+    def test_add_cost_domain_is_idempotent_not_additive(self, historical_df):
+        # historical_df already has a flat-rate 'cost' domain from
+        # generate_historical(); calling add_cost_domain() on it must
+        # REPLACE those rows with ToU-priced ones, not add a second set —
+        # regression guard for a bug where generate_with_cost() silently
+        # produced two cost rows per reading with different values.
+        from ml.cost_engine import add_cost_domain
+
+        n_consumption = (historical_df["domain"] == "consumption").sum()
+        n_cost_before = (historical_df["domain"] == "cost").sum()
+        assert n_cost_before > 0  # sanity: fixture really does pre-seed a cost domain
+
+        result = add_cost_domain(historical_df)
+        n_cost_after = (result["domain"] == "cost").sum()
+
+        assert n_cost_after == n_consumption
+        dup_check = result[result["domain"] == "cost"].duplicated(
+            subset=["facility_id", "device_id", "ts"]
+        )
+        assert not dup_check.any()
+
+    def test_add_cost_domain_called_twice_is_stable(self, historical_df):
+        from ml.cost_engine import add_cost_domain
+        once = add_cost_domain(historical_df)
+        twice = add_cost_domain(once)
+        n_cost_once = (once["domain"] == "cost").sum()
+        n_cost_twice = (twice["domain"] == "cost").sum()
+        assert n_cost_once == n_cost_twice
+
     def test_monthly_cost_summary_shape(self, historical_df):
         from ml.cost_engine import add_cost_domain, monthly_cost_summary
         df = add_cost_domain(historical_df)
