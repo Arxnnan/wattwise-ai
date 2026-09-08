@@ -415,7 +415,7 @@ signed in as `arunn.thiayagarajan@psiog.com` against the pSiddhi subscription:
 | Azure Blob Storage | Telemetry archive + model artefacts | Free (5 GB) | ✅ Live — `wattwiseblob2026`, round-trip write/read verified |
 | Azure Functions | Serverless triggers | Consumption plan (pay-per-execution, generous free grant) | ✅ Live — `wattwise-functions.azurewebsites.net`, 2 endpoints deployed and verified (`triggers/`) |
 | Azure B1s VM | Hosts ClickHouse + Grafana + FastAPI inference | **Not free** — this subscription is confirmed Pay-As-You-Go (`quotaId: PayAsYouGo_2014-09-01`), not a free trial | ✅ **RBAC fixed** (2026-09-03, Network Contributor granted) — created, verified running with a real public IP (`docs/midterm/AZURE_VM_EVIDENCE.md`), then **deleted immediately** to stop cost (~₹0.87/hr compute + ~₹0.40/hr for the Standard-SKU public IP the Basic-SKU quota block forced). Re-provisionable in ~2 min via `infra/provision_azure.ps1` whenever actually needed for the demo. |
-| Azure IoT Hub | Telemetry ingestion | Free (F1, 8K msgs/day) | 🟡 RBAC fixed, but blocked by a **different, subscription-wide limit**: `Max number of Iot Hubs exceeded for sku=Free, Max Allowed=1, Current=2` — 2 free-tier hubs already exist elsewhere in this shared cohort subscription (not visible to this RG's scope, can't tell whose). Needs either a quota increase or freeing one of the existing 2. |
+| Azure IoT Hub | Telemetry ingestion | Free (F1, 8K msgs/day) planned; **Standard (S1) used for the proof** | ✅ **Proven live, then torn down** (2026-09-08) — the F1 free tier remained blocked by a subscription-wide quota (`Max Allowed=1, Current=2` cohort-wide), so bypassed it with Standard (S1), which isn't subject to that cap. Registered a real device and published a real telemetry message through `ingestion/iot_hub_publisher.py`'s previously-untested MQTT+SAS path — confirmed via the hub's own message-count metric. Deleted immediately after (cost-conscious, same pattern as the B1s VM/ACS). |
 | Azure Communication Services | Email alerts | Free (pay-per-email beyond that, ~₹0 at this volume) | ✅ **Proven live, then torn down** (2026-09-07) — Mukundhan registered the `Microsoft.Communication` provider and granted Owner on the RG. Provisioned `wattwise-acs-test` + `wattwise-email-svc` with an Azure-managed domain, wired into both the local `.env` and the deployed Function App's settings, and verified with a real send — message actually delivered to a real Outlook inbox, not just an API 200. Deleted immediately after evidence capture, same cost-conscious pattern as the B1s VM. Redeployable in ~2 min (provider + role already granted) if needed live. |
 | Azure Monitor | Observability + budget alerts | Free tier | ✅ Configured by L&D at the resource-group level (per L&D's 2026-09-01 message) |
 
@@ -429,16 +429,26 @@ granted Owner on the RG. Re-tested both remaining blockers directly:
   it hits the **exact same** `400019` quota error as before
   (`Max Allowed=1, Current=2` free hubs already exist cohort-wide). This
   confirms the original diagnosis: it was never a permissions problem, and
-  a role grant cannot fix a subscription-wide quota. Still needs Mukundhan
-  (or subscription Owner) to raise the quota or free one of the 2 existing
-  hubs.
+  a role grant cannot fix a subscription-wide quota.
 
-**Pattern across the two remaining gaps (now one):** the RBAC fix (Network
-Contributor + Contributor granted 2026-09-03, Owner + provider registration
-granted 2026-09-07) genuinely worked every time it was the actual blocker —
-confirmed by each blocker turning into a *different*, more specific error
-after the fix, rather than the same repeated `AuthorizationFailed`. IoT Hub
-is the one case where the underlying blocker was never RBAC to begin with.
+**Update, 2026-09-08:** rather than wait on a quota increase from L&D, the
+free-tier cap was sidestepped directly — provisioned `wattwise-hub-final`
+on the **Standard (S1)** tier, which is not subject to the F1-only quota
+limit. Registered a real device (`off-main-01`) and published a real
+telemetry message through `ingestion/iot_hub_publisher.py` (previously
+written but never exercised against a live hub) — confirmed via the hub's
+own "messages used today" metric ticking from 0 to a real count. Deleted
+immediately after, same cost-conscious pattern as the VM/ACS. This closes
+the last open technical gap — see `docs/midterm/UC01_APPEAL.md`'s final
+update.
+
+**Pattern across all three gaps:** the RBAC fix (Network Contributor +
+Contributor granted 2026-09-03, Owner + provider registration granted
+2026-09-07) genuinely worked every time it was the actual blocker — each
+turned into a *different*, more specific error after the fix, rather than
+the same repeated `AuthorizationFailed`. IoT Hub's remaining blocker was
+never RBAC — it was a subscription-wide quota, resolved not by waiting for
+it to be raised but by using a tier the quota doesn't apply to.
 
 **Precise diagnosis** (`az role assignment list`, 2026-09-02): 6 scoped roles
 are granted on this RG — IoT Hub Data Contributor, Website Contributor,

@@ -9,14 +9,16 @@ plain MQTT with a SAS token as the password — no SDK is required to speak
 it, so this module implements that directly with the same paho-mqtt 2.x
 already in the dependency tree.
 
-**Status: implemented, not yet exercised against a real hub.** IoT Hub
-provisioning is blocked by an RBAC gap (`docs/midterm/UC01_APPEAL.md`,
-PROJECT_BLUEPRINT.md §11) — there is no hub to connect to yet. The SAS token
-generation and connection-string parsing below are pure functions, tested
-directly (`tests/unit/test_iot_hub_publisher.py`); the actual
-`connect()`/`publish()` path is written against IoT Hub's documented wire
-protocol but has not been run against a live hub, and that gap is stated
-here rather than implied away.
+**Status: exercised against a real hub, 2026-09-08.** Free-tier (F1)
+provisioning is blocked by a subscription-wide quota (`docs/midterm/
+UC01_APPEAL.md`, PROJECT_BLUEPRINT.md §11); bypassed by provisioning a
+Standard (S1) hub instead (not subject to that cap), registering a real
+device, and publishing a real telemetry message through this exact
+`connect()`/`publish()` path — confirmed via the hub's own message-count
+metric ticking up. The hub was deleted immediately after to avoid leaving a
+billable-capable resource running. The SAS token generation and
+connection-string parsing are also tested directly
+(`tests/unit/test_iot_hub_publisher.py`).
 
 Wire protocol (per Microsoft's IoT Hub MQTT documentation):
   Host:     <hub-name>.azure-devices.net:8883 (TLS required)
