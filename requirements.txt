@@ -1,8 +1,15 @@
 # WattWise AI — Python 3.11 dependencies
 # Install:  py -3.11 -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
 #
-# Pinned loosely (>=) for Week 4 setup; freeze exact versions after first successful install:
-#   pip freeze > requirements.lock.txt
+# Pinned loosely (>=) for Week 4 setup. This bit back on 2026-09-08: an
+# unpinned pyod/scikit-learn/tensorflow/numpy resolution drifted past the
+# versions the RFP accuracy gates were originally validated against, and
+# both the anomaly-F1 and LSTM-AE ROC-AUC targets genuinely regressed under
+# the newer versions (see docs/MODEL_EVIDENCE.md). Re-tuned and re-verified
+# against the CURRENT resolved versions, which are now frozen in
+# requirements.lock.txt — use that file for a reproducible install
+# (`pip install -r requirements.lock.txt`) rather than re-resolving from the
+# loose constraints below.
 
 # ---- Core data ----
 pandas>=2.2

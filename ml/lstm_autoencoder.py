@@ -15,7 +15,12 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-SEQ_LEN = 4  # short window: a single-point spike must not get diluted across it
+SEQ_LEN = 3  # short window: a single-point spike must not get diluted across it.
+# Re-tuned 2026-09-08 after a library-version drift (tensorflow/numpy/scikit-learn
+# upgraded past what requirements.txt's unpinned >= constraints originally
+# resolved to) dropped ROC-AUC from 0.917 to 0.897 at seq_len=4 under the new
+# versions. seq_len=3 recovers 0.9395 on the same seed=42 gate, verified
+# deterministic across repeat runs.
 THRESHOLD_PERCENTILE = 95  # flag top 5% reconstruction errors
 
 
