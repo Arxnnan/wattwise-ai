@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WattWise AI — System Architecture (Production + Local Demo)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #FAFBFB;
+    --surface:   #FFFFFF;
+    --surface-2: #F3F6F6;
+    --ink:       #0E1F1F;
+    --ink-mute:  #4C6666;
+    --ink-dim:   #8CA0A0;
+    --line:      #D7E2E2;
+    --line-soft: #ECF1F1;
+    --teal:      #28B3B4;
+    --teal-dark: #03514D;
+    --teal-mid:  #0B8FA3;
+    --lime:      #D6DF27;
+    --lime-dark: #a8b01f;
+    --amber:     #e0a93d;
+    --rose:      #e85d4f;
+    --radius:    12px;
+    --shadow-sm: 0 1px 2px rgba(14,31,31,0.04), 0 1px 1px rgba(14,31,31,0.02);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg); color: var(--ink);
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1680px; margin: 0 auto;
+    padding: 36px 48px 48px 48px;
+  }
+
+  /* Header */
+  .masthead {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  .masthead-l { display: flex; flex-direction: column; gap: 6px; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-dim); font-size: 10.5px; font-weight: 600;
+  }
+  .masthead h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 32px; font-weight: 500;
+    letter-spacing: -0.7px; line-height: 1.1;
+    color: var(--ink);
+  }
+  .masthead h1 .accent { color: var(--teal); font-style: italic; font-weight: 400; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-logo {
+    width: 36px; height: 36px;
+    background: var(--teal); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px;
+    border-radius: 8px; letter-spacing: -1px;
+  }
+  .brand-name { font-weight: 700; font-size: 17px; letter-spacing: -0.3px; color: var(--ink); }
+  .brand-tag { font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; }
+
+  /* Legend bar */
+  .legend {
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 24px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 12px; color: var(--ink-mute);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .swatch {
+    width: 10px; height: 10px; border-radius: 3px;
+    display: inline-block;
+  }
+  .legend .swatch.prod { background: var(--teal); }
+  .legend .swatch.dev  { background: var(--surface-2); border: 1px solid var(--line); }
+  .legend .swatch.rmap { background: var(--amber); }
+  .legend strong { color: var(--ink); font-weight: 600; }
+  .legend .divider { color: var(--ink-dim); }
+
+  /* Main grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 180px 1fr 260px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Section cards */
+  .col-section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .col-section + .col-section { margin-top: 16px; }
+  .section-head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .section-head .ico {
+    width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--teal);
+  }
+  .section-head .title {
+    font-size: 13.5px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.1px;
+  }
+  .section-head .count {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-dim);
+    background: var(--surface-2);
+    padding: 1px 7px; border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+
+  /* Users */
+  .user-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-top: 10px;
+  }
+  .user-row:first-child { margin-top: 0; }
+  .user-avatar {
+    width: 32px; height: 32px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface-2); color: var(--teal);
+    border-radius: 50%; font-weight: 600; font-size: 12px;
+  }
+  .user-info { line-height: 1.3; min-width: 0; }
+  .user-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  .user-role { font-size: 10.5px; color: var(--ink-dim); margin-top: 1px; }
+
+  /* Middle column — layers */
+  .layer-stack { display: flex; flex-direction: column; gap: 14px; }
+  .layer {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .layer-head {
+    display: flex; align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .layer-head .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--teal);
+    background: rgba(40,179,180,0.1);
+    padding: 2px 7px; border-radius: 4px;
+    margin-right: 10px;
+    font-weight: 600;
+  }
+  .layer-head .title { font-size: 13.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.1px; }
+  .layer-head .sub { font-size: 11.5px; color: var(--ink-dim); margin-left: auto; }
+  .layer-body { padding: 12px 16px 14px; }
+
+  /* COMPONENT ROW — the key visual: prod name + dev substitute */
+  .components { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cmp {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(40,179,180,0.06);
+    border: 1px solid rgba(40,179,180,0.3);
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 11.5px; font-weight: 600;
+    color: var(--teal-dark);
+    line-height: 1.3;
+  }
+  .cmp .dev {
+    color: var(--ink-dim);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 10.5px;
+  }
+  .cmp.plain {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink-mute);
+    font-weight: 500;
+  }
+  .cmp.roadmap {
+    background: rgba(224,169,61,0.08);
+    border-color: rgba(224,169,61,0.4);
+    color: var(--amber);
+    font-weight: 500;
+  }
+  .cmp.roadmap::after {
+    content: 'roadmap';
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    background: var(--amber);
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  /* Agent orchestrator — highlight */
+  .orchestrator {
+    background: linear-gradient(135deg, rgba(40,179,180,0.07) 0%, rgba(214,223,39,0.05) 100%);
+    border: 1px solid rgba(40,179,180,0.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .orchestrator-head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .orchestrator-head .title {
+    font-family: 'Fraunces', serif;
+    font-size: 15px; font-weight: 500; color: var(--ink);
+    letter-spacing: -0.3px;
+  }
+  .orchestrator-head .title em { color: var(--teal); font-style: italic; font-weight: 400; }
+  .orchestrator-head .badge {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--teal); color: #fff;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 999px;
+    margin-left: auto;
+  }
+  .agent-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .agent-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .agent-card .name { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .agent-card .fn { font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
+  .label-micro {
+    font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600; margin: 10px 0 8px;
+  }
+
+  /* Right column rows */
+  .model-swap { display: flex; flex-direction: column; gap: 7px; }
+  .model-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .model-row .mn { color: var(--ink); font-weight: 600; }
+  .model-row .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    padding: 1px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .tag.free  { color: var(--teal); background: rgba(40,179,180,0.1); }
+  .tag.local { color: var(--teal-dark); background: rgba(3,81,77,0.08); }
+  .tag.paid  { color: var(--amber); background: rgba(224,169,61,0.1); }
+
+  /* Bottom bar */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-top: 24px;
+  }
+  .bottom-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bottom-card.hero {
+    background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal-mid) 100%);
+    border-color: var(--teal-dark);
+    color: #fff;
+  }
+  .bottom-card .bh {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .bottom-card .bh .title { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+  .bottom-card .bh .ico { color: var(--teal); }
+  .bottom-card.hero .bh .ico, .bottom-card.hero .bh .title { color: #fff; }
+  .bottom-card .copy { font-size: 11.5px; color: var(--ink-mute); line-height: 1.55; }
+  .bottom-card.hero .copy { color: rgba(255,255,255,0.88); }
+  .bottom-card .copy strong { color: var(--ink); font-weight: 600; }
+  .bottom-card.hero .copy strong { color: var(--lime); }
+  .bottom-card .copy em { color: var(--ink-dim); font-style: italic; }
+  .bottom-card.hero .copy em { color: rgba(255,255,255,0.65); font-style: italic; }
+
+  /* Tracer banner */
+  .tracer {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    font-size: 11.5px; color: var(--ink-mute);
+  }
+  .tracer .ico { color: var(--teal); font-size: 14px; }
+  .tracer strong { color: var(--ink); font-weight: 600; }
+
+  /* Metadata footer */
+  .meta {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--ink-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .meta .m-right { font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; }
+
+  svg { display: block; }
+  @media (max-width: 1200px) {
+    .grid { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Masthead -->
+  <div class="masthead">
+    <div class="masthead-l">
+      <div class="eyebrow">System Architecture · Production target with local-demo stack</div>
+      <h1>WattWise AI <span class="accent">· agentic energy intelligence</span></h1>
+    </div>
+    <div class="brand">
+      <div class="brand-logo">W</div>
+      <div>
+        <div class="brand-name">WattWise AI</div>
+        <div class="brand-tag">IMPACT pSiddhi 3.0 · S4-I-14</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend bar -->
+  <div class="legend">
+    <span class="legend-item"><span class="swatch prod"></span><strong>Teal pill</strong> = production component</span>
+    <span class="divider">·</span>
+    <span class="legend-item"><em style="color:var(--ink-dim);">(italics in brackets)</em> = <strong>local-demo substitute</strong></span>
+    <span class="divider">·</span>
+    <span class="legend-item"><span class="swatch rmap"></span><strong>Amber pill</strong> = planned / roadmap</span>
+  </div>
+
+  <!-- Main grid -->
+  <div class="grid">
+
+    <!-- LEFT: Users -->
+    <div>
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span class="title">Users</span>
+          <span class="count">4 personas</span>
+        </div>
+        <div class="user-row"><div class="user-avatar">FM</div><div class="user-info"><div class="user-name">Facility Manager</div><div class="user-role">Daily ops, alerts</div></div></div>
+        <div class="user-row"><div class="user-avatar">CF</div><div class="user-info"><div class="user-name">CFO / Finance</div><div class="user-role">Cost projections</div></div></div>
+        <div class="user-row"><div class="user-avatar">ES</div><div class="user-info"><div class="user-name">ESG Lead</div><div class="user-role">BRSR, Scope 2</div></div></div>
+        <div class="user-row"><div class="user-avatar">OD</div><div class="user-info"><div class="user-name">Ops Director</div><div class="user-role">Multi-site view</div></div></div>
+      </div>
+
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </span>
+          <span class="title">Facilities</span>
+          <span class="count">3 sites</span>
+        </div>
+        <div class="components" style="margin-top:10px;">
+          <span class="cmp plain">Office HQ</span>
+          <span class="cmp plain">Warehouse</span>
+          <span class="cmp plain">Data Centre</span>
+        </div>
+      </div>
+
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+          </span>
+          <span class="title">Auth</span>
+        </div>
+        <div class="components" style="margin-top:10px;">
+          <span class="cmp">Entra ID / Auth0 <span class="dev">(dev: 3 hard-coded accounts)</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE: 5-layer stack -->
+    <div class="layer-stack">
+
+      <!-- Layer 1 -->
+      <div class="layer">
+        <div class="layer-head">
+          <span class="num">01</span>
+          <span class="title">IoT Ingestion</span>
+          <span class="sub">source-agnostic · MQTT · AMQP</span>
+        </div>
+        <div class="layer-body">
+          <div class="components">
+            <span class="cmp">Smart meters via Modbus/BACnet <span class="dev">(dev: synthetic simulator)</span></span>
+            <span class="cmp">Azure IoT Hub <span class="dev">(dev: Mosquitto broker)</span></span>
+            <span class="cmp">Event Hub consumer <span class="dev">(dev: direct MQTT subscriber)</span></span>
+            <span class="cmp plain">paho-mqtt 2.1</span>
+            <span class="cmp plain">SAS token publisher</span>
+            <span class="cmp plain">3 domains · consumption · demand · cost</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="layer">
+        <div class="layer-head">
+          <span class="num">02</span>
+          <span class="title">Analytics Store</span>
+          <span class="sub">time-series + OLAP</span>
+        </div>
+        <div class="layer-body">
+          <div class="components">
+            <span class="cmp">ClickHouse Cloud <span class="dev">(dev: single-node Docker)</span></span>
+            <span class="cmp">Azure Data Lake Gen2 <span class="dev">(dev: Azurite emulator)</span></span>
+            <span class="cmp plain">DuckDB 1.0 · ad-hoc</span>
+            <span class="cmp plain">dbt-core 1.8</span>
+            <span class="cmp plain">4 tables · telemetry · demand_15min · anomaly_events · forecasts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 3 — AI/ML Core -->
+      <div class="layer">
+        <div class="layer-head">
+          <span class="num">03</span>
+          <span class="title">AI / ML Core</span>
+          <span class="sub">3 RFP scenarios + agentic layer</span>
+        </div>
+        <div class="layer-body">
+
+          <!-- Orchestrator panel -->
+          <div class="orchestrator">
+            <div class="orchestrator-head">
+              <span class="title">Agent orchestrator · <em>AI advises, human decides</em></span>
+              <span class="badge">ReAct</span>
+            </div>
+            <div class="agent-grid">
+              <div class="agent-card"><div class="name">AnomalyAgent</div><div class="fn">4 tools</div></div>
+              <div class="agent-card"><div class="name">ForecastAgent</div><div class="fn">4 tools</div></div>
+              <div class="agent-card"><div class="name">CostAgent</div><div class="fn">4 tools</div></div>
+              <div class="agent-card"><div class="name">OptimizerAgent</div><div class="fn">5 tools</div></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap: wrap;">
+              <span class="cmp">ChatAgent · 10 tools · natural-language Q&amp;A</span>
+              <span class="cmp">Full-sweep · parallel 4-agent health check</span>
+              <span class="cmp">BriefingAgent · parallel fan-out → ranked actions</span>
+              <span class="cmp">ForensicAgent · drill-down reasoning chain</span>
+            </div>
+          </div>
+
+          <div class="label-micro">Deterministic ML — the agents call these as tools</div>
+          <div class="components">
+            <span class="cmp plain">PyOD ensemble · F1=0.927</span>
+            <span class="cmp plain">LSTM Autoencoder · ROC-AUC≥0.90</span>
+            <span class="cmp plain">Chronos T5 forecast · MAPE 2%</span>
+            <span class="cmp plain">XGBoost peak optimizer</span>
+            <span class="cmp plain">k-means load clustering</span>
+            <span class="cmp plain">Evidently drift monitor</span>
+            <span class="cmp">ToU cost engine · live tariff feed <span class="dev">(dev: hard-coded ₹12 / ₹5.5 / ₹150)</span></span>
+            <span class="cmp plain">Narrative generator · Gemini → HF → template</span>
+          </div>
+
+          <div class="label-micro">Analytics &amp; AI helpers (new)</div>
+          <div class="components">
+            <span class="cmp plain">comparator · vs-prior-period deltas</span>
+            <span class="cmp plain">severity · Critical / Major / Minor classifier</span>
+            <span class="cmp plain">caption_engine · 3-tier narrative generator</span>
+            <span class="cmp plain">view_recommender · per-view AI routing</span>
+          </div>
+
+          <div class="label-micro">Model lifecycle &amp; LLM</div>
+          <div class="components">
+            <span class="cmp">Azure ML Model Registry <span class="dev">(dev: pickled artifacts)</span></span>
+            <span class="cmp">MLflow tracking server <span class="dev">(dev: local MLflow)</span></span>
+            <span class="cmp plain">LLM provider wrapper · 6 backends · one-dropdown swap</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 4 -->
+      <div class="layer">
+        <div class="layer-head">
+          <span class="num">04</span>
+          <span class="title">Triggers · Auto + Human-approved</span>
+          <span class="sub">split pipeline · zero auto-execution of consequential actions</span>
+        </div>
+        <div class="layer-body">
+          <div class="label-micro">Auto-fired (AI alone · notifications only, no state change)</div>
+          <div class="components">
+            <span class="cmp plain">Azure Functions v4 · /api/event · /api/bms/webhook</span>
+            <span class="cmp">ACS email <span class="dev">(dev: Mailpit SMTP or Gmail SMTP · verified live)</span></span>
+            <span class="cmp plain">Twilio SMS</span>
+            <span class="cmp plain">Multi-recipient dispatch · comma-separated list</span>
+            <span class="cmp plain">Weekly digest (Mon 8am / Fri 5pm)</span>
+          </div>
+
+          <div class="label-micro">Human-approved (ActionHandler · state-changing)</div>
+          <div class="components">
+            <span class="cmp">BMS BACnet-over-IP <span class="dev">(dev: HTTP webhook stub)</span></span>
+            <span class="cmp roadmap">ServiceNow / Jira ticket creation</span>
+            <span class="cmp plain">Load shed · schedule shift · threshold override</span>
+            <span class="cmp plain">Append-only audit log · .streamlit/audit_log.jsonl</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 5 -->
+      <div class="layer">
+        <div class="layer-head">
+          <span class="num">05</span>
+          <span class="title">Dashboards &amp; UX</span>
+          <span class="sub">10 Streamlit views · AI advisor threaded through every page · Grafana · Power BI</span>
+        </div>
+        <div class="layer-body">
+          <div class="label-micro">Daily workflow &nbsp; (NEW)</div>
+          <div class="components">
+            <span class="cmp">Morning Briefing · 3 AI recommendations · Approve / Snooze / Dismiss</span>
+            <span class="cmp">Audit Log · admin-only · AI SUGGESTED → HUMAN DECIDED → ACTION FIRED</span>
+          </div>
+          <div class="label-micro">Analytics &amp; operations &nbsp; (per-view AI recommendation strip on each)</div>
+          <div class="components">
+            <span class="cmp plain">Real-Time Consumption</span>
+            <span class="cmp plain">Demand Pattern</span>
+            <span class="cmp plain">Cost Analysis</span>
+            <span class="cmp plain">AI Optimization · forensic drill-down modal · severity ranking</span>
+            <span class="cmp plain">Cross-Facility Benchmark</span>
+            <span class="cmp plain">AI Chat Agent · suggested questions</span>
+            <span class="cmp plain">Full Agent Sweep</span>
+            <span class="cmp plain">Alert Settings · LLM + SMTP + Twilio + BMS config</span>
+          </div>
+          <div class="label-micro">Delivery &amp; BI</div>
+          <div class="components">
+            <span class="cmp">Streamlit on Azure App Service <span class="dev">(dev: streamlit run localhost:8501)</span></span>
+            <span class="cmp">Grafana Cloud <span class="dev">(dev: Grafana OSS 11.1 container)</span></span>
+            <span class="cmp">Power BI Service <span class="dev">(dev: .pbix file)</span></span>
+            <span class="cmp roadmap">FastAPI backend · separates UI from compute</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tracer -->
+      <div class="tracer">
+        <span class="ico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </span>
+        <span><strong>Observability:</strong> every agent step, LLM call, tool invocation and dispatch result is logged. The chat UI surfaces this as "how we got here" — prod ships to Azure Monitor / Application Insights <em>(dev: Python logging + stdout)</em></span>
+      </div>
+    </div>
+
+    <!-- RIGHT: AI models, data, secrets, external -->
+    <div>
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </span>
+          <span class="title">LLM Models</span>
+          <span class="count">swappable</span>
+        </div>
+        <div style="font-size:10.5px; color:var(--ink-dim); margin-bottom:8px;">Provider wrapper · one env var swap · <strong style="color:var(--ink);">6 backends</strong></div>
+        <div class="model-swap">
+          <div class="model-row"><span class="mn">Gemini Flash <span style="color:var(--ink-dim);font-weight:400;">(rolling alias)</span></span><span class="tag free">free</span></div>
+          <div class="model-row"><span class="mn">Groq · Llama 3.3</span><span class="tag free">free · fast</span></div>
+          <div class="model-row"><span class="mn">Ollama local</span><span class="tag local">local</span></div>
+          <div class="model-row"><span class="mn">OpenAI GPT-4o</span><span class="tag paid">paid</span></div>
+          <div class="model-row"><span class="mn">Anthropic Claude</span><span class="tag paid">paid</span></div>
+          <div class="model-row"><span class="mn">HuggingFace</span><span class="tag free">free</span></div>
+        </div>
+      </div>
+
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <span class="title">Secrets</span>
+        </div>
+        <div class="components" style="margin-top:10px;">
+          <span class="cmp">Azure Key Vault <span class="dev">(dev: .streamlit/alert_settings.json · gitignored)</span></span>
+        </div>
+      </div>
+
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </span>
+          <span class="title">Storage</span>
+        </div>
+        <div class="components" style="margin-top:10px;">
+          <span class="cmp">Azure Blob · ML artefacts <span class="dev">(dev: Azurite)</span></span>
+          <span class="cmp roadmap">Azure SQL · metadata</span>
+        </div>
+      </div>
+
+      <div class="col-section">
+        <div class="section-head">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </span>
+          <span class="title">External sources</span>
+        </div>
+        <div class="components" style="margin-top:10px;">
+          <span class="cmp">Smart-meter OEM gateways <span class="dev">(dev: simulator)</span></span>
+          <span class="cmp roadmap">Weather API · OpenWeatherMap</span>
+          <span class="cmp roadmap">Utility tariff feed</span>
+          <span class="cmp">BMS via BACnet <span class="dev">(dev: HTTP webhook stub)</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom row -->
+  <div class="bottom-row">
+    <div class="bottom-card">
+      <div class="bh">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+        <span class="title">CI / CD</span>
+      </div>
+      <div class="copy"><strong>GitHub Actions</strong> · ruff lint · pytest with ≥80 % coverage gate · <em>(prod: Azure DevOps Pipeline with blue-green deploy; current: GitHub Actions deploy to Functions on green)</em></div>
+    </div>
+    <div class="bottom-card">
+      <div class="bh">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+        <span class="title">Quality gates</span>
+      </div>
+      <div class="copy"><strong>626 tests · 100 % backend coverage · 0 failures</strong> · every model gate exceeded (anomaly F1 0.927 vs ≥ 0.88, forecast MAPE ~2 % vs ≤ 8 %, LSTM-AE ROC-AUC ≥ 0.90)</div>
+    </div>
+    <div class="bottom-card">
+      <div class="bh">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span class="title">BI / Reporting</span>
+      </div>
+      <div class="copy"><strong>Power BI Service</strong> · <strong>Grafana Cloud</strong> real-time ops <em>(dev: local Grafana OSS + .pbix file)</em> · dashboard-based ESG snapshot — <span style="color:var(--amber); font-weight:600;">formal BRSR export: roadmap</span></div>
+    </div>
+    <div class="bottom-card hero">
+      <div class="bh">
+        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+        <span class="title">Trust by design</span>
+      </div>
+      <div class="copy">HTTPS · <strong>Entra ID auth</strong> + Key Vault + VNet · secrets isolated from source tree · degrades gracefully when creds missing · synthetic data in dev <em>(dev: hard-coded accounts + local JSON secrets gitignored; human approval UI = roadmap)</em></div>
+    </div>
+  </div>
+
+  <!-- Meta footer -->
+  <div class="meta">
+    <div>WattWise AI · 5-layer agentic energy intelligence · Python 3.11 · Streamlit · ClickHouse · Azure</div>
+    <div class="m-right">v1.2 · 2026-10-10 · production target with local demo substitutes · AI advisor / human decision-maker pattern</div>
+  </div>
+</div>
+</body>
+</html>

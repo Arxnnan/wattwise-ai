@@ -1,0 +1,1 @@
+"""WattWise AI — analytics subpackage."""

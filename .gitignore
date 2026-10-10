@@ -60,3 +60,6 @@ Thumbs.db
 
 # ---- Docker ----
 *.log
+
+# WattWise AI runtime settings (contains API keys)
+.streamlit/alert_settings.json
