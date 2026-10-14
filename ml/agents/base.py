@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 log = logging.getLogger(__name__)
 
-MAX_ITERATIONS = 8
+MAX_ITERATIONS = 5  # was 8; capped to bound token-per-minute on free LLM tiers (Qwen 7k ITPM)
 MAX_MEMORY = 20
 
 

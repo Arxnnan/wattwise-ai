@@ -1,0 +1,22 @@
+# WattWise AI - Mock Building Management System
+# Standalone FastAPI server simulating a real BMS webhook endpoint
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    fastapi==0.115.* \
+    "uvicorn[standard]==0.32.*" \
+    pydantic==2.*
+
+COPY bms_simulator/ /app/bms_simulator/
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE 9100
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health').read()" || exit 1
+
+CMD ["uvicorn", "bms_simulator.server:app", "--host", "0.0.0.0", "--port", "9100"]

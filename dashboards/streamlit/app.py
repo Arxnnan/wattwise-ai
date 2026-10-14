@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(
     page_title="WattWise AI",
-    page_icon="◆",
+    page_icon=str(Path(__file__).parent / "favicon.svg"),
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -236,26 +236,57 @@ st.markdown("""
     section[data-testid="stSidebar"] > div { padding: 1.25rem 0.75rem; }
 
     .brand-wrap {
-        display: flex; align-items: center; gap: 10px;
-        padding: 4px 10px 20px 10px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 6px 10px 18px 10px;
         margin-bottom: 8px;
         border-bottom: 1px solid var(--border);
     }
     .brand-logo {
-        width: 34px; height: 34px;
-        display: flex; align-items: center; justify-content: center;
-        background: var(--accent);
-        color: #0d1a1a; font-weight: 700; font-size: 1.1rem;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px;
+        background: transparent;
+        color: var(--accent);
+        font-weight: 400; font-size: 1.5rem;
         font-family: var(--serif);
-        border-radius: 8px;
-        letter-spacing: -1px;
+        font-style: italic;
+        letter-spacing: -1.5px;
+        line-height: 1;
+        border: none;
+        padding: 0;
+        flex-shrink: 0;
+        position: relative;
     }
-    .brand-text { line-height: 1.15; }
+    .brand-logo::after {
+        content: "";
+        position: absolute;
+        right: -8px;
+        top: 15%;
+        height: 70%;
+        width: 1px;
+        background: var(--border);
+    }
+    .brand-text { line-height: 1.3; display: flex; flex-direction: column; justify-content: center; }
     .brand-title {
-        color: var(--text); font-weight: 500; font-size: 1rem;
-        font-family: var(--serif); letter-spacing: -0.3px;
+        color: var(--text); font-weight: 500; font-size: 0.82rem;
+        font-family: 'Inter', sans-serif;
+        letter-spacing: 1.8px;
+        text-transform: uppercase;
     }
     .brand-tag { color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; font-weight: 500; }
+    .brand-psiog {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 10px 14px 10px;
+        margin: -8px 0 10px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .brand-psiog-label {
+        color: var(--text-muted);
+        font-size: 0.56rem;
+        text-transform: uppercase;
+        letter-spacing: 1.8px;
+        font-weight: 500;
+    }
+    .brand-psiog svg { height: 16px; width: auto; display: block; opacity: 0.95; }
 
     .nav-section {
         color: var(--text-muted);
@@ -1024,6 +1055,23 @@ VALID_CREDENTIALS = {
 if "auth" not in st.session_state:
     st.session_state.auth = None
 
+# ── Rehydrate auth from URL query param (survives server restarts + hard refresh) ──
+if st.session_state.auth is None:
+    _q_user = st.query_params.get("u", "")
+    _q_token = st.query_params.get("t", "")
+    if _q_user and _q_token and _q_user in VALID_CREDENTIALS:
+        import hashlib as _hashlib
+        _cred = VALID_CREDENTIALS[_q_user]
+        # Expected token is hash(username + password + server-side pepper)
+        _expected = _hashlib.sha256(f"wattwise-s4-i-14:{_q_user}:{_cred[0]}".encode()).hexdigest()[:16]
+        if _q_token == _expected:
+            st.session_state.auth = {
+                "username": _q_user,
+                "name": _cred[1],
+                "role": _cred[2],
+                "login_time": datetime.now(timezone.utc).isoformat(),
+            }
+
 def _render_login():
     st.markdown("""
     <style>
@@ -1091,215 +1139,264 @@ def _render_login():
             justify-content: center !important;
         }
 
-        /* LEFT column — form side */
+        /* LEFT column — form side (dark teal) */
         [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:first-child {
             background: #0a1515;
-            overflow-y: auto;
+            overflow: hidden;
+            border-right: 1px solid #152626;
+            align-items: center !important;
         }
-        /* Inner vertical block inside the column — fills column, scrolls if needed */
         [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:first-child > div {
             min-height: 100vh !important;
             display: flex !important;
             flex-direction: column !important;
-            justify-content: center !important;
-            padding: 32px 48px !important;
-            max-width: 460px !important;
+            justify-content: safe center !important;
+            padding: 32px 64px !important;
+            max-width: 480px !important;
             margin: 0 auto !important;
             width: 100% !important;
             box-sizing: border-box !important;
         }
 
-        /* RIGHT column — gradient panel */
+        /* RIGHT column — deeper teal panel, no gradient */
         [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:last-child {
-            background:
-                radial-gradient(circle at 20% 30%, rgba(40,179,180,0.45) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(214,223,39,0.22) 0%, transparent 55%),
-                radial-gradient(circle at 50% 100%, rgba(11,143,163,0.5) 0%, transparent 60%),
-                linear-gradient(135deg, #03514D 0%, #0B8FA3 50%, #152626 100%) !important;
+            background: #03514D !important;
             position: relative !important;
             overflow: hidden !important;
-            justify-content: flex-end !important;
-            padding: 56px !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 72px !important;
+        }
+        [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:last-child > div {
+            width: 100% !important;
+            max-width: 560px !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+        }
+        [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:last-child::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 80% 20%, rgba(214,223,39,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 20% 90%, rgba(40,179,180,0.08) 0%, transparent 55%);
+            pointer-events: none;
+            z-index: 1;
         }
 
-        .login-left {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 48px 56px;
-            height: 100vh;
-            max-width: 480px;
-            margin: 0 auto;
-            width: 100%;
-            box-sizing: border-box;
-        }
         .login-brand {
-            display: flex; align-items: center; gap: 10px;
-            margin-bottom: 28px;
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 36px;
         }
         .login-logo {
-            width: 34px; height: 34px;
-            background: #28B3B4;
-            color: #0a1515; font-weight: 700; font-size: 1.1rem;
-            font-family: 'Fraunces', Georgia, serif;
-            border-radius: 8px;
-            letter-spacing: -1px;
             display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px;
+            background: transparent;
+            color: #28B3B4;
+            font-weight: 400; font-size: 1.5rem;
+            font-family: 'Fraunces', Georgia, serif;
+            font-style: italic;
+            letter-spacing: -1.5px;
+            line-height: 1;
+            border: none;
+            padding: 0;
             flex-shrink: 0;
+            position: relative;
+        }
+        .login-logo::after {
+            content: "";
+            position: absolute;
+            right: -8px;
+            top: 15%;
+            height: 70%;
+            width: 1px;
+            background: rgba(232,240,240,0.18);
         }
         .login-brand-text {
             color: #e8f0f0;
-            font-weight: 600;
-            font-size: 1rem;
-            letter-spacing: -0.2px;
+            font-weight: 500;
+            font-size: 0.82rem;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            font-family: 'Inter', sans-serif;
+        }
+        .login-eyebrow {
+            color: #28B3B4;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 2.4px;
+            margin: 0 0 14px 0;
+            font-weight: 500;
         }
         .login-title {
             color: #e8f0f0;
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 1.5rem;
-            font-weight: 500;
-            letter-spacing: -0.4px;
-            margin: 0 0 6px 0;
-            line-height: 1.25;
+            font-size: 2.4rem;
+            font-weight: 300;
+            letter-spacing: -1px;
+            margin: 0 0 14px 0;
+            line-height: 1.1;
+        }
+        .login-title em {
+            font-style: italic;
+            font-weight: 300;
+            color: #D6DF27;
         }
         .login-sub {
             color: #9ab0b0;
-            font-size: 0.85rem;
-            margin: 0 0 22px 0;
-            line-height: 1.5;
+            font-size: 0.95rem;
+            margin: 0 0 32px 0;
+            line-height: 1.55;
+            font-family: 'Fraunces', Georgia, serif;
+            font-weight: 300;
         }
         .login-sub a { color: #28B3B4; text-decoration: none; font-weight: 500; }
         .login-sub a:hover { text-decoration: underline; }
 
-        /* Form inputs — underline style like the reference */
+        /* Form inputs — thin underline, ascetic */
         [data-testid="stForm"] {
             border: none !important;
             background: transparent !important;
             padding: 0 !important;
         }
-        [data-testid="stForm"] [data-testid="stTextInput"] { margin-bottom: 16px !important; }
+        [data-testid="stForm"] [data-testid="stTextInput"] { margin-bottom: 28px !important; }
         [data-testid="stForm"] [data-testid="stTextInput"] > div > div {
             background: transparent !important;
             border: none !important;
             border-bottom: 1px solid #2c4a4a !important;
             border-radius: 0 !important;
-            transition: border-color 0.15s;
+            transition: border-color 0.2s ease;
         }
         [data-testid="stForm"] [data-testid="stTextInput"] > div > div:focus-within {
             border-bottom-color: #28B3B4 !important;
         }
         [data-testid="stForm"] [data-testid="stTextInput"] input {
             background: transparent !important;
-            padding: 8px 0 !important;
-            font-size: 0.95rem !important;
-            height: 36px !important;
+            padding: 10px 0 !important;
+            font-size: 1rem !important;
+            height: 42px !important;
             color: #e8f0f0 !important;
             border: none !important;
+            font-family: 'Fraunces', Georgia, serif !important;
+            font-weight: 400 !important;
         }
         [data-testid="stForm"] [data-testid="stTextInput"] input::placeholder {
             color: #6b8484 !important;
+            font-style: italic;
         }
         [data-testid="stForm"] label p {
-            font-size: 0.72rem !important;
+            font-size: 0.65rem !important;
             font-weight: 500 !important;
             color: #9ab0b0 !important;
-            margin: 0 0 4px 0 !important;
-            letter-spacing: 0.5px !important;
+            margin: 0 0 2px 0 !important;
+            letter-spacing: 2px !important;
             text-transform: uppercase !important;
+            font-family: 'Inter', sans-serif !important;
         }
-        [data-testid="stForm"] .stFormSubmitButton { margin-top: 10px !important; }
+        [data-testid="stForm"] .stFormSubmitButton { margin-top: 18px !important; }
         [data-testid="stForm"] .stFormSubmitButton button {
             width: 100% !important;
-            height: 42px !important;
+            height: 48px !important;
             background: #28B3B4 !important;
             color: #0a1515 !important;
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            font-size: 0.9rem !important;
-            letter-spacing: 0.2px !important;
-            transition: background 0.15s !important;
+            border: none !important;
+            border-radius: 2px !important;
+            font-weight: 500 !important;
+            font-size: 0.78rem !important;
+            letter-spacing: 2.5px !important;
+            text-transform: uppercase !important;
+            transition: background 0.2s ease !important;
+            font-family: 'Inter', sans-serif !important;
         }
         [data-testid="stForm"] .stFormSubmitButton button:hover {
-            background: #1C9292 !important;
-        }
-
-        /* Hint — inline compact */
-        .login-hint {
-            background: rgba(40, 179, 180, 0.05);
-            border: 1px solid rgba(40, 179, 180, 0.15);
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin-top: 14px;
-            color: #9ab0b0;
-            font-size: 0.72rem;
-            line-height: 1.6;
-        }
-        .login-hint strong { color: #e8f0f0; font-size: 0.72rem; font-weight: 600; margin-right: 6px; }
-        .login-hint code {
-            background: rgba(40, 179, 180, 0.14);
-            color: #28B3B4;
-            padding: 0 5px;
-            border-radius: 3px;
-            font-size: 0.7rem;
-            font-family: 'JetBrains Mono', monospace;
+            background: #D6DF27 !important;
+            color: #0a1515 !important;
         }
 
         /* Footer */
         .login-foot {
             color: #6b8484;
-            font-size: 0.7rem;
-            margin-top: 14px;
-            letter-spacing: 0.3px;
+            font-size: 0.62rem;
+            margin-top: 32px;
+            padding-top: 18px;
+            border-top: 1px solid #152626;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: 'Inter', sans-serif;
         }
-        .login-foot .accent { color: #28B3B4; font-family: 'JetBrains Mono', monospace; }
+        .login-foot .accent { color: #28B3B4; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
+
+        /* Hide Streamlit "Press Enter to submit form" helper text */
+        [data-testid="InputInstructions"],
+        [data-testid="stTextInput"] small,
+        [data-testid="stFormSubmitButton"] + div [data-testid="InputInstructions"],
+        div[data-testid="stTextInputRootElement"] + div { display: none !important; }
+
+        .login-delivered {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 56px;
+            padding-top: 28px;
+            border-top: 1px solid rgba(232,240,240,0.12);
+        }
+        .login-delivered-label {
+            color: rgba(232, 240, 240, 0.5);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 2.4px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+        }
+        .login-delivered svg {
+            height: 24px;
+            width: auto;
+            display: block;
+            opacity: 0.95;
+        }
 
         .login-right-content {
             position: relative;
             z-index: 2;
             color: #e8f0f0;
-            max-width: 480px;
+            max-width: 520px;
+        }
+        .login-mark {
+            display: inline-block;
+            color: #D6DF27;
+            font-family: 'Fraunces', Georgia, serif;
+            font-style: italic;
+            font-size: 0.75rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 36px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(214,223,39,0.4);
         }
         .login-tagline {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 2rem;
-            font-weight: 400;
-            letter-spacing: -0.8px;
-            line-height: 1.2;
-            margin: 0 0 14px 0;
+            font-size: 2.6rem;
+            font-weight: 300;
+            letter-spacing: -1.2px;
+            line-height: 1.15;
+            margin: 0 0 24px 0;
             color: #e8f0f0;
         }
         .login-tagline em {
             color: #D6DF27;
             font-style: italic;
+            font-weight: 300;
         }
         .login-tagdesc {
-            color: rgba(232, 240, 240, 0.78);
-            font-size: 0.9rem;
-            line-height: 1.6;
+            color: rgba(232, 240, 240, 0.72);
+            font-size: 1rem;
+            line-height: 1.7;
             margin: 0;
-        }
-        .login-metrics {
-            display: flex;
-            gap: 32px;
-            margin-top: 28px;
-            padding-top: 22px;
-            border-top: 1px solid rgba(232,240,240,0.15);
-        }
-        .login-metric-value {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 1.4rem;
-            font-weight: 500;
-            color: #D6DF27;
-            letter-spacing: -0.5px;
-            line-height: 1;
-        }
-        .login-metric-label {
-            color: rgba(232, 240, 240, 0.7);
-            font-size: 0.7rem;
-            margin-top: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            font-weight: 500;
+            font-weight: 300;
+            max-width: 440px;
         }
 
         /* Hide right panel on narrow screens */
@@ -1321,7 +1418,8 @@ def _render_login():
             <div class="login-logo">W</div>
             <div class="login-brand-text">WattWise AI</div>
         </div>
-        <h1 class="login-title">Sign in to your account</h1>
+        <p class="login-eyebrow">— Welcome back</p>
+        <h1 class="login-title">Sign in to <em>your</em> account.</h1>
         <p class="login-sub">Enter your credentials to access the energy intelligence dashboard.</p>
         """, unsafe_allow_html=True)
 
@@ -1333,49 +1431,48 @@ def _render_login():
         if submit:
             cred = VALID_CREDENTIALS.get(username.strip().lower())
             if cred and cred[0] == password:
+                _uname = username.strip().lower()
                 st.session_state.auth = {
-                    "username": username.strip().lower(),
+                    "username": _uname,
                     "name": cred[1],
                     "role": cred[2],
                     "login_time": datetime.now(timezone.utc).isoformat(),
                 }
+                # Persist to URL so refresh / server restart keeps user signed in
+                import hashlib as _h
+                _tok = _h.sha256(f"wattwise-s4-i-14:{_uname}:{cred[0]}".encode()).hexdigest()[:16]
+                st.query_params["u"] = _uname
+                st.query_params["t"] = _tok
                 st.rerun()
             else:
                 st.error("Invalid credentials. Please try again.")
 
-        st.markdown("""
-        <div class="login-hint">
-            <strong>Demo credentials</strong>
-            <code>demo</code> / <code>demo</code> &nbsp;·&nbsp;
-            <code>ops</code> / <code>ops</code> &nbsp;·&nbsp;
-            <code>admin</code> / <code>wattwise2026</code>
-        </div>
-        <div class="login-foot">
-            IMPACT pSiddhi 3.0 &nbsp;·&nbsp; <span class="accent">S4-I-14</span>
-        </div>
-        """, unsafe_allow_html=True)
 
     with right:
         st.markdown("""
         <div class="login-right-content">
-            <h2 class="login-tagline">Smarter energy decisions, powered by <em>AI</em>.</h2>
+            <span class="login-mark">— An essay in energy</span>
+            <h2 class="login-tagline">Smarter energy decisions, <em>quietly</em> powered by AI.</h2>
             <p class="login-tagdesc">
                 Real-time telemetry from your facilities meets anomaly detection,
-                demand forecasting and autonomous optimization agents — all in one dashboard.
+                demand forecasting and autonomous optimization agents — composed into one calm dashboard.
             </p>
-            <div class="login-metrics">
-                <div>
-                    <div class="login-metric-value">3</div>
-                    <div class="login-metric-label">Facilities</div>
-                </div>
-                <div>
-                    <div class="login-metric-value">4</div>
-                    <div class="login-metric-label">AI Agents</div>
-                </div>
-                <div>
-                    <div class="login-metric-value">87%</div>
-                    <div class="login-metric-label">Test Coverage</div>
-                </div>
+            <div class="login-delivered">
+                <span class="login-delivered-label">Delivered&nbsp;by</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 267 76" fill="none" aria-label="Psiog">
+                    <path d="M162.412 15.0471V22.1925H147.404C145.761 22.1925 144.35 22.5027 143.161 23.1281C141.973 23.7534 141.378 24.6308 141.378 25.7651C141.378 26.4438 141.519 27.0546 141.804 27.5927C142.084 28.1308 142.408 28.5719 142.78 28.9112C143.147 29.2506 143.712 29.6045 144.476 29.9729C145.239 30.3413 145.833 30.5982 146.259 30.7388C146.684 30.8794 148.477 31.4611 151.642 32.4839C154.806 33.5068 157.155 34.3551 158.677 35.0338C160.204 35.7124 161.378 36.6383 162.195 37.7969C163.011 38.9603 163.538 40.0947 163.765 41.1999C163.992 42.3052 164.103 43.3959 164.103 44.4769C164.103 52.078 158.904 55.8736 148.501 55.8736H133.831V48.7283H148.501C153.811 48.7283 156.469 47.3128 156.469 44.4769C156.469 43.1147 155.691 41.9804 154.135 41.0739C152.579 40.1674 150.685 39.4015 148.452 38.7761C146.22 38.1508 143.988 37.4285 141.755 36.6092C139.523 35.79 137.629 34.4569 136.078 32.61C134.522 30.7679 133.744 28.4847 133.744 25.7603C133.744 22.304 135.073 19.6523 137.73 17.8054C140.388 15.9633 143.606 15.0422 147.394 15.0422H162.402L162.412 15.0471Z" fill="#28B3B4"/>
+                    <path d="M187.234 20.9514C191.046 16.9618 195.815 14.9646 201.536 14.9646C204.315 14.9646 206.914 15.4978 209.34 16.5643C211.761 17.6308 213.887 19.0948 215.713 20.9514C217.54 22.808 218.97 24.9846 220.004 27.4714C221.038 29.9583 221.555 32.6244 221.555 35.4651C221.555 38.3058 221.053 40.972 220.043 43.4588C219.033 45.9457 217.632 48.1174 215.834 49.9789C214.037 51.8355 211.911 53.2995 209.461 54.366C207.011 55.4324 204.368 55.9657 201.536 55.9657C198.705 55.9657 195.994 55.4324 193.568 54.366C191.143 53.2995 189.031 51.8404 187.234 49.9789C185.436 48.1222 184.035 45.9505 183.025 43.4588C182.015 40.972 181.513 38.3058 181.513 35.4651C181.513 29.6722 183.416 24.8343 187.234 20.9514ZM201.536 21.8531C197.724 21.8531 194.656 23.1086 192.341 25.6245C190.027 28.1404 188.867 31.4174 188.867 35.4651C188.867 39.5129 190.022 42.7899 192.341 45.3009C194.656 47.8168 197.719 49.0724 201.536 49.0724C205.354 49.0724 208.48 47.8023 210.77 45.2621C213.056 42.722 214.201 39.4547 214.201 35.4651C214.201 31.4756 213.056 28.2083 210.77 25.6681C208.48 23.128 205.402 21.8579 201.536 21.8579V21.8531Z" fill="#D6DF27"/>
+                    <path d="M246.479 55.8783C240.936 55.8783 236.191 54.0071 232.234 50.2648C228.277 46.5224 226.3 41.7281 226.3 35.8916C226.3 30.0551 228.291 25.0475 232.277 21.0482C236.264 17.049 241.192 15.0518 247.073 15.0518H267V54.6906C267 57.2405 266.676 59.5383 266.024 61.5791C265.372 63.6199 264.454 65.3505 263.27 66.766C262.081 68.1815 261.008 69.2868 260.047 70.0818C259.085 70.8768 257.926 71.6961 256.573 72.5492C253.065 74.3622 248.798 75.2687 243.768 75.2687H234.273V68.1234H243.004C247.977 68.1234 251.509 67.498 253.601 66.2522C257.442 64.095 259.365 60.5223 259.365 55.5341V22.1923H247.073C243.058 22.1923 239.868 23.4381 237.491 25.9346C235.119 28.4312 233.93 31.7469 233.93 35.8868C233.93 40.0266 235.157 42.9885 237.617 45.2863C240.076 47.5841 243.029 48.7329 246.479 48.7329C250.209 48.7329 253.49 47.7101 256.312 45.6693V53.3236C253.258 55.0251 249.982 55.8735 246.479 55.8735V55.8783Z" fill="#D6DF27"/>
+                    <path d="M170.177 6.40369C169.563 5.59899 169.254 4.72157 169.254 3.77144C169.254 2.82131 169.563 1.95843 170.177 1.17312C170.791 0.392655 171.738 0 173.013 0C174.289 0 175.236 0.392655 175.85 1.17312C176.463 1.95359 176.773 2.82131 176.773 3.77144C176.773 4.72157 176.463 5.58444 175.85 6.36976C175.236 7.15022 174.289 7.54288 173.013 7.54288C171.738 7.54288 170.791 7.16476 170.177 6.40369Z" fill="#28B3B4"/>
+                    <path d="M176.768 15.0422H169.254V55.8785H176.768V15.0422Z" fill="#28B3B4"/>
+                    <path d="M89.3719 75.264V35.4894C89.3719 32.6487 89.8889 29.9728 90.923 27.4569C91.957 24.9458 93.3728 22.7692 95.1703 20.9417C96.9677 19.1093 99.0938 17.6647 101.544 16.5982C103.993 15.5318 106.608 14.9985 109.386 14.9985C112.164 14.9985 114.764 15.5318 117.19 16.5982C119.615 17.6647 121.736 19.1287 123.563 20.9853C125.385 22.842 126.815 25.0137 127.854 27.5005C128.888 29.9873 129.405 32.6535 129.405 35.4942C129.405 38.3349 128.902 41.0011 127.892 43.4879C126.882 45.9748 125.481 48.1465 123.684 50.0031C121.886 51.8597 119.76 53.3237 117.31 54.3902C114.861 55.4567 112.217 55.9899 109.386 55.9899C105.897 55.9899 102.66 55.1707 99.664 53.5322V46.1541C102.331 48.1222 105.491 49.1063 109.139 49.1063C111.101 49.1063 112.884 48.767 114.493 48.0835C116.098 47.4 117.46 46.4595 118.576 45.2573C119.693 44.0551 120.553 42.6202 121.152 40.9526C121.751 39.2851 122.051 37.4672 122.051 35.5039C122.051 33.5406 121.751 31.7179 121.152 30.0504C120.553 28.3828 119.707 26.9479 118.62 25.7457C117.528 24.5435 116.209 23.603 114.658 22.9195C113.107 22.236 111.348 21.8967 109.386 21.8967C107.424 21.8967 105.752 22.2263 104.196 22.8807C102.645 23.5352 101.307 24.4659 100.195 25.6681C99.0793 26.8703 98.2192 28.3052 97.6201 29.9728C97.0209 31.6404 96.7213 33.4825 96.7213 35.5039V75.2785H89.3671L89.3719 75.264Z" fill="#28B3B4"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M29.3203 7.43124C27.5035 8.79342 24.928 8.425 23.5654 6.6023C22.2028 4.77475 22.5748 2.19098 24.3917 0.828799C26.2085 -0.538227 28.7839 -0.164961 30.1465 1.65774C31.5092 3.48044 31.1371 6.06422 29.3203 7.43124Z" fill="#D6DF27"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M54.7802 45.2959C55.505 43.1339 57.8388 41.9753 59.9939 42.7024C62.1441 43.4344 63.299 45.771 62.5742 47.933C61.8494 50.0902 59.5155 51.2488 57.3653 50.5216C55.2151 49.7945 54.0602 47.4531 54.785 45.2959" fill="#D6DF27"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M19.1154 49.4648C21.6329 50.541 22.8022 53.4641 21.7295 55.9897C20.6568 58.5153 17.7431 59.6885 15.2257 58.6123C12.7082 57.5361 11.5389 54.6179 12.6116 52.0874C13.6891 49.5618 16.5979 48.3887 19.1154 49.4648Z" fill="#D6DF27"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M6.05929 24.7955L0 15.522C16.0808 3.32057 29.8422 14.1453 34.1379 22.774L28.8324 23.3218C17.5256 10.3884 6.57631 25.5953 6.05929 24.8003" fill="#28B3B4"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M64.1397 17.7616L74.369 21.9548C68.0053 41.1465 50.5522 40.0509 42.1398 35.3827L46.2035 31.9167C62.8254 36.1486 63.2555 17.3981 64.1349 17.7568" fill="#28B3B4"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M51.2188 63.3242L45.2368 75.2687C30.8279 69.1753 26.914 58.336 27.6484 48.7959C27.5615 32.8764 53.0743 4.61969 56.6258 10.6986C55.8382 11.3966 32.0649 34.5343 35.1815 49.5376V49.6152C37.0998 60.8277 51.6343 62.4904 51.2236 63.3242" fill="#28B3B4"/>
+                </svg>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1423,6 +1520,23 @@ with st.sidebar:
             <div class="brand-title">WattWise AI</div>
             <div class="brand-tag">Energy Intelligence</div>
         </div>
+    </div>
+    <div class="brand-psiog">
+        <span class="brand-psiog-label">By</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 267 76" fill="none" aria-label="Psiog">
+            <path d="M162.412 15.0471V22.1925H147.404C145.761 22.1925 144.35 22.5027 143.161 23.1281C141.973 23.7534 141.378 24.6308 141.378 25.7651C141.378 26.4438 141.519 27.0546 141.804 27.5927C142.084 28.1308 142.408 28.5719 142.78 28.9112C143.147 29.2506 143.712 29.6045 144.476 29.9729C145.239 30.3413 145.833 30.5982 146.259 30.7388C146.684 30.8794 148.477 31.4611 151.642 32.4839C154.806 33.5068 157.155 34.3551 158.677 35.0338C160.204 35.7124 161.378 36.6383 162.195 37.7969C163.011 38.9603 163.538 40.0947 163.765 41.1999C163.992 42.3052 164.103 43.3959 164.103 44.4769C164.103 52.078 158.904 55.8736 148.501 55.8736H133.831V48.7283H148.501C153.811 48.7283 156.469 47.3128 156.469 44.4769C156.469 43.1147 155.691 41.9804 154.135 41.0739C152.579 40.1674 150.685 39.4015 148.452 38.7761C146.22 38.1508 143.988 37.4285 141.755 36.6092C139.523 35.79 137.629 34.4569 136.078 32.61C134.522 30.7679 133.744 28.4847 133.744 25.7603C133.744 22.304 135.073 19.6523 137.73 17.8054C140.388 15.9633 143.606 15.0422 147.394 15.0422H162.402L162.412 15.0471Z" fill="#28B3B4"/>
+            <path d="M187.234 20.9514C191.046 16.9618 195.815 14.9646 201.536 14.9646C204.315 14.9646 206.914 15.4978 209.34 16.5643C211.761 17.6308 213.887 19.0948 215.713 20.9514C217.54 22.808 218.97 24.9846 220.004 27.4714C221.038 29.9583 221.555 32.6244 221.555 35.4651C221.555 38.3058 221.053 40.972 220.043 43.4588C219.033 45.9457 217.632 48.1174 215.834 49.9789C214.037 51.8355 211.911 53.2995 209.461 54.366C207.011 55.4324 204.368 55.9657 201.536 55.9657C198.705 55.9657 195.994 55.4324 193.568 54.366C191.143 53.2995 189.031 51.8404 187.234 49.9789C185.436 48.1222 184.035 45.9505 183.025 43.4588C182.015 40.972 181.513 38.3058 181.513 35.4651C181.513 29.6722 183.416 24.8343 187.234 20.9514ZM201.536 21.8531C197.724 21.8531 194.656 23.1086 192.341 25.6245C190.027 28.1404 188.867 31.4174 188.867 35.4651C188.867 39.5129 190.022 42.7899 192.341 45.3009C194.656 47.8168 197.719 49.0724 201.536 49.0724C205.354 49.0724 208.48 47.8023 210.77 45.2621C213.056 42.722 214.201 39.4547 214.201 35.4651C214.201 31.4756 213.056 28.2083 210.77 25.6681C208.48 23.128 205.402 21.8579 201.536 21.8579V21.8531Z" fill="#D6DF27"/>
+            <path d="M246.479 55.8783C240.936 55.8783 236.191 54.0071 232.234 50.2648C228.277 46.5224 226.3 41.7281 226.3 35.8916C226.3 30.0551 228.291 25.0475 232.277 21.0482C236.264 17.049 241.192 15.0518 247.073 15.0518H267V54.6906C267 57.2405 266.676 59.5383 266.024 61.5791C265.372 63.6199 264.454 65.3505 263.27 66.766C262.081 68.1815 261.008 69.2868 260.047 70.0818C259.085 70.8768 257.926 71.6961 256.573 72.5492C253.065 74.3622 248.798 75.2687 243.768 75.2687H234.273V68.1234H243.004C247.977 68.1234 251.509 67.498 253.601 66.2522C257.442 64.095 259.365 60.5223 259.365 55.5341V22.1923H247.073C243.058 22.1923 239.868 23.4381 237.491 25.9346C235.119 28.4312 233.93 31.7469 233.93 35.8868C233.93 40.0266 235.157 42.9885 237.617 45.2863C240.076 47.5841 243.029 48.7329 246.479 48.7329C250.209 48.7329 253.49 47.7101 256.312 45.6693V53.3236C253.258 55.0251 249.982 55.8735 246.479 55.8735V55.8783Z" fill="#D6DF27"/>
+            <path d="M170.177 6.40369C169.563 5.59899 169.254 4.72157 169.254 3.77144C169.254 2.82131 169.563 1.95843 170.177 1.17312C170.791 0.392655 171.738 0 173.013 0C174.289 0 175.236 0.392655 175.85 1.17312C176.463 1.95359 176.773 2.82131 176.773 3.77144C176.773 4.72157 176.463 5.58444 175.85 6.36976C175.236 7.15022 174.289 7.54288 173.013 7.54288C171.738 7.54288 170.791 7.16476 170.177 6.40369Z" fill="#28B3B4"/>
+            <path d="M176.768 15.0422H169.254V55.8785H176.768V15.0422Z" fill="#28B3B4"/>
+            <path d="M89.3719 75.264V35.4894C89.3719 32.6487 89.8889 29.9728 90.923 27.4569C91.957 24.9458 93.3728 22.7692 95.1703 20.9417C96.9677 19.1093 99.0938 17.6647 101.544 16.5982C103.993 15.5318 106.608 14.9985 109.386 14.9985C112.164 14.9985 114.764 15.5318 117.19 16.5982C119.615 17.6647 121.736 19.1287 123.563 20.9853C125.385 22.842 126.815 25.0137 127.854 27.5005C128.888 29.9873 129.405 32.6535 129.405 35.4942C129.405 38.3349 128.902 41.0011 127.892 43.4879C126.882 45.9748 125.481 48.1465 123.684 50.0031C121.886 51.8597 119.76 53.3237 117.31 54.3902C114.861 55.4567 112.217 55.9899 109.386 55.9899C105.897 55.9899 102.66 55.1707 99.664 53.5322V46.1541C102.331 48.1222 105.491 49.1063 109.139 49.1063C111.101 49.1063 112.884 48.767 114.493 48.0835C116.098 47.4 117.46 46.4595 118.576 45.2573C119.693 44.0551 120.553 42.6202 121.152 40.9526C121.751 39.2851 122.051 37.4672 122.051 35.5039C122.051 33.5406 121.751 31.7179 121.152 30.0504C120.553 28.3828 119.707 26.9479 118.62 25.7457C117.528 24.5435 116.209 23.603 114.658 22.9195C113.107 22.236 111.348 21.8967 109.386 21.8967C107.424 21.8967 105.752 22.2263 104.196 22.8807C102.645 23.5352 101.307 24.4659 100.195 25.6681C99.0793 26.8703 98.2192 28.3052 97.6201 29.9728C97.0209 31.6404 96.7213 33.4825 96.7213 35.5039V75.2785H89.3671L89.3719 75.264Z" fill="#28B3B4"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M29.3203 7.43124C27.5035 8.79342 24.928 8.425 23.5654 6.6023C22.2028 4.77475 22.5748 2.19098 24.3917 0.828799C26.2085 -0.538227 28.7839 -0.164961 30.1465 1.65774C31.5092 3.48044 31.1371 6.06422 29.3203 7.43124Z" fill="#D6DF27"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M54.7802 45.2959C55.505 43.1339 57.8388 41.9753 59.9939 42.7024C62.1441 43.4344 63.299 45.771 62.5742 47.933C61.8494 50.0902 59.5155 51.2488 57.3653 50.5216C55.2151 49.7945 54.0602 47.4531 54.785 45.2959" fill="#D6DF27"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M19.1154 49.4648C21.6329 50.541 22.8022 53.4641 21.7295 55.9897C20.6568 58.5153 17.7431 59.6885 15.2257 58.6123C12.7082 57.5361 11.5389 54.6179 12.6116 52.0874C13.6891 49.5618 16.5979 48.3887 19.1154 49.4648Z" fill="#D6DF27"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M6.05929 24.7955L0 15.522C16.0808 3.32057 29.8422 14.1453 34.1379 22.774L28.8324 23.3218C17.5256 10.3884 6.57631 25.5953 6.05929 24.8003" fill="#28B3B4"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M64.1397 17.7616L74.369 21.9548C68.0053 41.1465 50.5522 40.0509 42.1398 35.3827L46.2035 31.9167C62.8254 36.1486 63.2555 17.3981 64.1349 17.7568" fill="#28B3B4"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M51.2188 63.3242L45.2368 75.2687C30.8279 69.1753 26.914 58.336 27.6484 48.7959C27.5615 32.8764 53.0743 4.61969 56.6258 10.6986C55.8382 11.3966 32.0649 34.5343 35.1815 49.5376V49.6152C37.0998 60.8277 51.6343 62.4904 51.2236 63.3242" fill="#28B3B4"/>
+        </svg>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1474,15 +1588,8 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     if st.button("Sign out", type="secondary", use_container_width=True, key="signout_btn"):
         st.session_state.auth = None
+        st.query_params.clear()  # Clear auth tokens from URL
         st.rerun()
-    st.markdown("""
-    <div class="sidebar-foot" style="padding-top:16px;border-top:none;">
-        <div class="foot-label">Project</div>
-        <div class="foot-value">IMPACT pSiddhi 3.0</div>
-        <div class="foot-label" style="margin-top:8px;">Reference</div>
-        <div class="foot-value">S4-I-14</div>
-    </div>
-    """, unsafe_allow_html=True)
 
 # ── Data loading ─────────────────────────────────────────────
 @st.cache_data(ttl=60, show_spinner=False)
@@ -1570,18 +1677,24 @@ if view == "Morning Briefing":
     """, unsafe_allow_html=True)
 
     # Session state scaffolding ─────────────────────────────
-    _briefing_key = f"briefing_{facility}"
+    _briefing_key = f"briefing_pool_{facility}"       # full ranked pool, cached
+    _window_key = f"briefing_window_{facility}"       # rotating index into the pool
     _decisions_key = f"briefing_decisions_{facility}"
     if _decisions_key not in st.session_state:
         st.session_state[_decisions_key] = {}  # {rec_id: "approved"|"snoozed"|"dismissed"}
+    if _window_key not in st.session_state:
+        st.session_state[_window_key] = 0
 
     _col_hdr, _col_btn = st.columns([3, 1])
     with _col_hdr:
         st.markdown("##### Today's recommended actions")
     with _col_btn:
         if st.button("Refresh briefing", type="secondary", use_container_width=True):
+            # Rotate the window, re-run specialists (fresh timestamps + any
+            # telemetry drift), KEEP user decisions so approved cards stay
+            # collapsed and don't re-appear.
+            st.session_state[_window_key] = st.session_state[_window_key] + 1
             st.session_state.pop(_briefing_key, None)
-            st.session_state[_decisions_key] = {}
             st.rerun()
 
     # Generate (or load from cache) ─────────────────────────
@@ -1589,56 +1702,262 @@ if view == "Morning Briefing":
         with st.spinner("Running Anomaly · Forecast · Cost · Optimizer agents in parallel..."):
             try:
                 _agent = BriefingAgent()
-                _recs = _agent.generate(facility_id=facility, top_n=3, timeout_sec=25)
-                st.session_state[_briefing_key] = _recs
+                # Pull a larger pool so the window can rotate on refresh
+                st.session_state[_briefing_key] = _agent.generate(
+                    facility_id=facility, top_n=12, timeout_sec=25,
+                )
             except Exception as _e:
                 st.error(f"Briefing failed: {_e}")
                 st.session_state[_briefing_key] = []
 
-    _recs = st.session_state[_briefing_key]
+    _pool = st.session_state[_briefing_key]
+    _decisions_map = st.session_state[_decisions_key]
+    # Decided items from the pool — surfaced in the summary strip below so the
+    # user can always see what they've approved / snoozed / dismissed.
+    _decided_recs = [r for r in _pool if r.id in _decisions_map]
+    # Filter out items the user has already decided on, then slice a 3-item
+    # window from the rotating offset. Dedupe at the end so a short pool never
+    # produces repeated keys on the page.
+    _undecided = [r for r in _pool if r.id not in _decisions_map]
+    if _undecided:
+        _window = st.session_state[_window_key]
+        _step = 3
+        _offset = (_window * _step) % len(_undecided)
+        _slice = (_undecided * 2)[_offset:_offset + _step]
+        _seen: set[str] = set()
+        _recs = []
+        for _r in _slice:
+            if _r.id in _seen:
+                continue
+            _seen.add(_r.id)
+            _recs.append(_r)
+    else:
+        _recs = []
+
+    # ── Decisions-so-far summary strip ─────────────────────────────────────
+    if _decided_recs:
+        _results_cache_for_strip = st.session_state.get(f"briefing_results_{facility}", {})
+        _n_appr = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "approved")
+        _n_snz = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "snoozed")
+        _n_dis = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "dismissed")
+        st.markdown(f"""
+        <div style="display:flex; gap:14px; align-items:center; margin:6px 0 10px 0;
+                    padding:10px 16px; background:rgba(40,179,180,0.04);
+                    border:1px solid var(--border); border-radius:6px;">
+          <span style="color:var(--text-muted); font-size:10.5px; letter-spacing:1.6px;
+                       text-transform:uppercase; font-weight:500;">Decisions this session</span>
+          <span style="color:#28B3B4; font-size:12px; font-weight:600;">✓ {_n_appr} approved</span>
+          <span style="color:#6ba9d4; font-size:12px; font-weight:600;">⏱ {_n_snz} snoozed</span>
+          <span style="color:#8ca0a0; font-size:12px; font-weight:600;">✕ {_n_dis} dismissed</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander(f"Review {len(_decided_recs)} decided item{'s' if len(_decided_recs) != 1 else ''}", expanded=False):
+            # Show most-recent decisions first (newest at top is friendlier)
+            for _dr in reversed(_decided_recs):
+                _dec = _decisions_map.get(_dr.id)
+                _res = _results_cache_for_strip.get(_dr.id)
+                _d_meta = {
+                    "approved": ("#28B3B4", "✓", "APPROVED",
+                                 f"Action fired &middot; {', '.join(_res.get('channels_fired', ['logged']))}" if _res else "Action logged"),
+                    "snoozed":  ("#6ba9d4", "⏱", "SNOOZED",  "Will reappear in tomorrow's briefing"),
+                    "dismissed":("#8ca0a0", "✕", "DISMISSED", "AI will down-weight this type"),
+                }.get(_dec, ("#8ca0a0", "·", (_dec or "").upper(), ""))
+                _dc, _dicon, _dlbl, _dsub = _d_meta
+                st.markdown(f"""
+                <div style="margin:0 0 8px; padding:9px 14px; background:rgba(255,255,255,0.02);
+                            border:1px solid var(--border); border-left:3px solid {_dc};
+                            border-radius:6px; display:flex; align-items:center; gap:12px;">
+                  <span style="color:{_dc}; font-size:15px; font-weight:700;">{_dicon}</span>
+                  <span style="color:{_dc}; font-size:10.5px; font-weight:700;
+                               letter-spacing:1.6px; min-width:84px;">{_dlbl}</span>
+                  <span style="color:var(--text); font-size:12.5px; flex:1;">{_dr.title}</span>
+                  <span style="color:var(--text-muted); font-size:11px;">{_dsub}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
     if not _recs:
-        st.info("No actionable recommendations right now — all systems within normal thresholds. Check back later or run **Full Agent Sweep** for a deeper look.")
+        if _decided_recs:
+            st.success(f"You've acted on {len(_decided_recs)} recommendation{'s' if len(_decided_recs) != 1 else ''}. No more open items in this briefing — hit **Refresh briefing** to re-run the specialists.")
+        else:
+            st.info("No actionable recommendations right now — all systems within normal thresholds. Check back later or run **Full Agent Sweep** for a deeper look.")
     else:
         _handler = ActionHandler()
+
+        # Helper: enrich rec with human-friendly defaults when agent gave thin data
+        def _enrich(rec):
+            """Build display-ready fields from the raw ActionRecommendation.
+            Fills in sensible defaults for rationale, impact, timeline, risk."""
+            _cat_meta = {
+                "anomaly":      {"owner": "HVAC / Maintenance team",   "timeline": "This week",  "icon": ""},
+                "cost":         {"owner": "Finance + Facility Manager", "timeline": "This month", "icon": ""},
+                "optimization": {"owner": "Facility Operations",        "timeline": "Next 24-48h","icon": ""},
+                "forecast":     {"owner": "On-call Operations",         "timeline": "Tomorrow",   "icon": ""},
+            }.get(rec.category, {"owner": "Operations", "timeline": "This week", "icon": ""})
+
+            _impact_str = f"₹{rec.impact_inr_month:,.0f}/mo saved" if rec.impact_inr_month > 100 \
+                else "Cost-neutral · risk mitigation" if rec.category == "anomaly" \
+                else "Opportunity sizing in progress"
+
+            _risk_default = {
+                "anomaly":      "Equipment may fail unexpectedly. Avg emergency callout ₹25,000 + 2 days downtime.",
+                "cost":         "Monthly bill continues at current trajectory. Opportunity recurs each cycle.",
+                "optimization": "Peak-demand charges continue at full rate. Monthly compounding loss.",
+                "forecast":     "Peak may exceed billing threshold. Demand charge adds to next invoice.",
+            }.get(rec.category, "Opportunity passes; may recur next cycle.")
+
+            _rationale_text = rec.rationale or (
+                f"The {rec.agent_name} identified a pattern in the {facility.title()} data that warrants attention. "
+                f"Review the evidence and decide whether to act."
+            )
+
+            return _cat_meta, _impact_str, (rec.counterfactual or _risk_default), _rationale_text
+
+        # Track dispatch results per rec id so the banner survives rerun
+        if f"briefing_results_{facility}" not in st.session_state:
+            st.session_state[f"briefing_results_{facility}"] = {}
+        _results_cache = st.session_state[f"briefing_results_{facility}"]
 
         for _i, _rec in enumerate(_recs):
             _decision = st.session_state[_decisions_key].get(_rec.id)
             _conf_pct = int(_rec.confidence * 100)
-            _impact_label = f"₹{_rec.impact_inr_month:,.0f}/mo" if _rec.impact_inr_month else "cost-neutral"
+            _cat_meta, _impact_str, _risk_text, _rationale_text = _enrich(_rec)
+            _result = _results_cache.get(_rec.id)  # persisted dispatch outcome
 
-            # Severity badge
+            # ── If user has decided, collapse to a 1-line confirmation (hide the big card) ──
+            if _decision:
+                _d_meta = {
+                    "approved": ("#28B3B4", "✓", "APPROVED",
+                                 f"Action fired &middot; {', '.join(_result.get('channels_fired', ['logged']))}" if _result else "Action logged"),
+                    "snoozed":  ("#6ba9d4", "⏱", "SNOOZED",  "Will reappear in tomorrow's briefing"),
+                    "dismissed":("#8ca0a0", "✕", "DISMISSED", "AI will down-weight this type"),
+                }.get(_decision, ("#8ca0a0", "·", _decision.upper(), ""))
+                _dc, _dicon, _dlbl, _dsub = _d_meta
+                st.markdown(f"""
+                <div style="margin:0 0 12px; padding:10px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-left:3px solid {_dc}; border-radius:6px; display:flex; align-items:center; gap:12px;">
+                  <span style="color:{_dc}; font-size:16px; font-weight:700;">{_dicon}</span>
+                  <span style="color:{_dc}; font-size:11px; font-weight:700; letter-spacing:0.08em; min-width:90px;">{_dlbl}</span>
+                  <span style="color:var(--text); font-size:13px; flex:1;">{_rec.title}</span>
+                  <span style="color:var(--text-muted); font-size:11.5px;">{_dsub}</span>
+                </div>
+                """, unsafe_allow_html=True)
+                continue  # Skip rendering the full card
+
+            # Category colors
             _sev_color = {"anomaly": "var(--critical)", "cost": "var(--accent-lime)",
                           "optimization": "var(--accent)", "forecast": "var(--warning)"}.get(_rec.category, "var(--accent)")
+            _sev_bg = {"anomaly": "rgba(232,93,79,0.06)", "cost": "rgba(214,223,39,0.06)",
+                       "optimization": "rgba(40,179,180,0.06)", "forecast": "rgba(224,169,61,0.06)"}.get(_rec.category, "rgba(40,179,180,0.06)")
             _sev_label = _rec.category.title()
 
-            # Card wrapper
             _card_opacity = "0.55" if _decision in ("dismissed", "snoozed") else "1"
-            _card_border = "var(--accent)" if _decision == "approved" else "var(--border)"
+
+            # Pull problem/solution/evidence (with safe getattr for backward compat)
+            _problem_text = getattr(_rec, "problem", "") or _rationale_text
+            _solution_text = getattr(_rec, "solution", "") or f"Approve to let the AI dispatch the recommended {_rec.action_type.replace('_', ' ')} action."
+            _evidence_list = getattr(_rec, "evidence", []) or []
 
             with st.container(border=True):
+                # ── Header row ──
                 st.markdown(f"""
-                <div style="opacity:{_card_opacity}; margin:-8px -8px 0;">
-                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-                    <span style="color:{_sev_color}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; background:rgba(255,255,255,0.04); padding:3px 10px; border-radius:999px;">{_sev_label}</span>
-                    <span style="color:var(--text-muted); font-size:11px; font-weight:500;">{_rec.agent_name}</span>
-                    <span style="color:var(--text-muted); font-size:11px; margin-left:auto;">Confidence <strong style="color:var(--text);">{_conf_pct}%</strong></span>
+                <div style="opacity:{_card_opacity}; margin:-8px -8px 0 -8px;">
+                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="color:{_sev_color}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; background:{_sev_bg}; padding:4px 11px; border-radius:999px; border:1px solid {_sev_color};">{_sev_label}</span>
+                    <span style="color:var(--text-muted); font-size:11px; font-weight:500;">by {_rec.agent_name}</span>
+                    <span style="color:var(--text-muted); font-size:11px; margin-left:auto;">#{_rec.id[:8]}</span>
+                    <span style="color:var(--text-muted); font-size:11px;">· Confidence <strong style="color:{_sev_color};">{_conf_pct}%</strong></span>
                   </div>
-                  <div style="font-size:17px; font-weight:600; color:var(--text); letter-spacing:-0.2px; margin-bottom:6px;">{_rec.title}</div>
-                  <div style="color:var(--text-secondary); font-size:14px; line-height:1.55; margin-bottom:12px;">{_rec.rationale}</div>
+                  <div style="font-size:19px; font-weight:600; color:var(--text); letter-spacing:-0.3px; margin-bottom:16px; line-height:1.3;">{_rec.title}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                _mcol1, _mcol2, _mcol3 = st.columns([1, 1, 2])
-                with _mcol1:
-                    st.markdown(f'<div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Expected impact</div><div style="color:var(--accent-lime); font-size:18px; font-weight:600; font-family:\'JetBrains Mono\',monospace; margin-top:2px;">{_impact_label}</div>', unsafe_allow_html=True)
-                with _mcol2:
-                    st.markdown(f'<div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Action type</div><div style="color:var(--text); font-size:14px; font-weight:500; margin-top:4px;">{_rec.action_type.replace("_"," ").title()}</div>', unsafe_allow_html=True)
-                with _mcol3:
-                    if _rec.counterfactual:
-                        st.markdown(f'<div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">If you skip this</div><div style="color:var(--text-secondary); font-size:13px; margin-top:4px; line-height:1.4;">{_rec.counterfactual}</div>', unsafe_allow_html=True)
+                # ── PROBLEM section ──
+                st.markdown(f"""
+                <div style="margin:0 0 14px; padding:12px 14px; background:rgba(232,93,79,0.05); border-left:3px solid var(--critical); border-radius:4px;">
+                  <div style="color:var(--critical); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:4px;">Problem detected</div>
+                  <div style="color:var(--text); font-size:13.5px; line-height:1.55;">{_problem_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-                st.markdown("")
+                # ── AI SOLUTION section ──
+                st.markdown(f"""
+                <div style="margin:0 0 14px; padding:12px 14px; background:rgba(40,179,180,0.06); border-left:3px solid var(--accent); border-radius:4px;">
+                  <div style="color:var(--accent); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:4px;">AI recommended solution</div>
+                  <div style="color:var(--text); font-size:13.5px; line-height:1.55;">{_solution_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # ── EVIDENCE list (if any) ──
+                if _evidence_list:
+                    _ev_html = "".join([f'<li style="margin-bottom:3px;">{e}</li>' for e in _evidence_list])
+                    st.markdown(f"""
+                    <div style="margin:0 0 14px; padding:10px 14px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:6px;">
+                      <div style="color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:6px;">Evidence</div>
+                      <ul style="color:var(--text-secondary); font-size:12.5px; line-height:1.5; margin:0; padding-left:18px;">{_ev_html}</ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # ── Decision brief: 4-cell grid ──
+                _dc1, _dc2 = st.columns(2)
+                with _dc1:
+                    st.markdown(f"""
+                    <div style="margin-bottom:12px;">
+                      <div style="color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:4px;">Expected Impact</div>
+                      <div style="color:{_sev_color}; font-size:16px; font-weight:600; font-family:'JetBrains Mono',monospace;">{_impact_str}</div>
+                    </div>
+                    <div style="margin-bottom:4px;">
+                      <div style="color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:4px;">Owner</div>
+                      <div style="color:var(--text); font-size:13.5px; font-weight:500;">{_cat_meta['owner']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with _dc2:
+                    st.markdown(f"""
+                    <div style="margin-bottom:12px;">
+                      <div style="color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:4px;">Act By</div>
+                      <div style="color:var(--text); font-size:14px; font-weight:600;">{_cat_meta['timeline']}</div>
+                    </div>
+                    <div style="margin-bottom:4px;">
+                      <div style="color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:4px;">Action Type</div>
+                      <div style="color:var(--text); font-size:13.5px; font-weight:500;">{_rec.action_type.replace("_"," ").title()}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # ── Risk / counterfactual callout ──
+                st.markdown(f"""
+                <div style="margin:12px 0; padding:10px 14px; background:rgba(232,93,79,0.05); border-left:3px solid var(--critical); border-radius:4px;">
+                  <div style="color:var(--critical); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:3px;">If you skip this</div>
+                  <div style="color:var(--text-secondary); font-size:13px; line-height:1.5;">{_risk_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # ── Expandable: full agent reasoning + payload ──
+                with st.expander("View technical details & action payload"):
+                    st.markdown(f"**{_rec.agent_name} summary**")
+                    st.write(_rec.rationale or _rationale_text)
+                    if _rec.one_click_payload:
+                        st.markdown("**Action payload (what fires on approval):**")
+                        st.json(_rec.one_click_payload)
+                    if _rec.similar_past_ids:
+                        st.markdown(f"**Similar past events:** {len(_rec.similar_past_ids)} on record")
+
+                # ── Button legend (what happens on each click) ──
+                _approve_what = {
+                    "shed_load": "fires BMS webhook to shed load + emails ops team",
+                    "dispatch_technician": "creates work order + emails maintenance team",
+                    "shift_schedule": "writes new schedule to BMS + confirms via email",
+                    "send_alert": "sends alert email + SMS to on-call team",
+                    "override_threshold": "updates billing config + logs decision",
+                }.get(_rec.action_type, "logs decision + emails ops team")
+                if not _decision:
+                    st.markdown(f"""
+                    <div style="margin:14px 0 8px; padding:10px 14px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:6px; font-size:11.5px; color:var(--text-muted); line-height:1.55;">
+                      <strong style="color:var(--text-secondary);">What happens next:</strong>
+                      &nbsp;<strong style="color:var(--accent);">Approve</strong> &rarr; {_approve_what} &middot; recorded in Audit Log.
+                      &nbsp;<strong style="color:var(--text-secondary);">Snooze</strong> &rarr; hides for 24h, reappears tomorrow.
+                      &nbsp;<strong style="color:var(--text-secondary);">Dismiss</strong> &rarr; rejects permanently, AI learns from the signal.
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1, 1, 2])
                 _disabled = _decision is not None
 
@@ -1660,10 +1979,10 @@ if view == "Morning Briefing":
                     try:
                         _result = _handler.execute_approved(_sugg, _dec)
                         st.session_state[_decisions_key][_rec.id] = "approved"
-                        st.success(f"Action fired: {_result.get('channels_fired', 'logged')}")
+                        _results_cache[_rec.id] = _result  # persist so banner survives rerun
                     except Exception as _ex:
-                        st.warning(f"Action logged but dispatch failed: {_ex}")
                         st.session_state[_decisions_key][_rec.id] = "approved"
+                        _results_cache[_rec.id] = {"status": "error", "channels_fired": [f"error: {_ex}"], "timestamp": datetime.now(timezone.utc).isoformat()}
                     st.rerun()
 
                 if _bc2.button("Snooze", key=f"snooze_{_rec.id}", type="secondary", disabled=_disabled, use_container_width=True):
@@ -1678,8 +1997,7 @@ if view == "Morning Briefing":
                     st.session_state[_decisions_key][_rec.id] = "dismissed"
                     st.rerun()
 
-                if _decision:
-                    _bc4.markdown(f'<div style="padding-top:8px; color:var(--text-muted); font-size:12px; text-align:right;">You {_decision} this action</div>', unsafe_allow_html=True)
+                # (prominent decision banner at top of card already shows status)
 
     # Human-in-the-loop reminder
     st.markdown("")
@@ -1694,8 +2012,19 @@ if view == "Morning Briefing":
 # ── VIEW 1 — Real-Time Consumption ──────────────────────────
 elif "Real-Time" in view:
     render_recommendation_strip("Real-Time Consumption", facility)
-    cons = facility_df[facility_df["domain"] == "consumption"].copy()
+    # Non-energy sensors (weather, occupancy) emit dummy context values, not kW —
+    # include them in the chart and they'd stack a jittery ribbon on top that
+    # distracts from the real energy picture. Exclude them.
+    _ENERGY_CLASSES = ("main_meter", "sub_meter", "hvac", "lighting")
+    cons = facility_df[
+        (facility_df["domain"] == "consumption")
+        & (facility_df["device_class"].isin(_ENERGY_CLASSES))
+    ].copy()
     cons_pivot = cons.groupby(["ts", "device_class"])["value"].sum().unstack(fill_value=0)
+    # Stack biggest contributors at the bottom (HVAC) and smallest at the top (lighting)
+    # for a readable shape — the eye follows the dominant band without the top edge jittering.
+    _stack_order = [c for c in ("hvac", "sub_meter", "main_meter", "lighting") if c in cons_pivot.columns]
+    cons_pivot = cons_pivot[_stack_order]
 
     fig = go.Figure()
     for i, col in enumerate(cons_pivot.columns):
@@ -2047,17 +2376,26 @@ elif "AI Optimization" in view:
             x=demand_series.index[-96:], y=demand_series.values[-96:],
             mode="lines", name="Actual",
             line=dict(color=COLORS["info"], width=1.5),
+            hovertemplate="<b>Actual</b>: %{y:.1f} kW<extra></extra>",
         ))
         fig.add_trace(go.Scatter(
             x=forecast_df["forecast_ts"], y=forecast_df["predicted_kw"],
             mode="lines", name="Forecast",
             line=dict(color=COLORS["secondary"], dash="dash", width=2),
+            customdata=list(zip(forecast_df["lower_bound"], forecast_df["upper_bound"])),
+            hovertemplate=(
+                "<b>Forecast</b>: %{y:.1f} kW<br>"
+                "<span style='color:#8ca0a0'>Range: %{customdata[0]:.1f} – %{customdata[1]:.1f} kW</span>"
+                "<extra></extra>"
+            ),
         ))
+        # Confidence band is a visual-only shaded area — don't clutter the tooltip
         fig.add_trace(go.Scatter(
             x=list(forecast_df["forecast_ts"]) + list(forecast_df["forecast_ts"][::-1]),
             y=list(forecast_df["upper_bound"]) + list(forecast_df["lower_bound"][::-1]),
             fill="toself", fillcolor="rgba(139,92,246,0.1)",
-            line=dict(color="rgba(0,0,0,0)"), name="Confidence Band",
+            line=dict(color="rgba(0,0,0,0)"), name="Confidence band",
+            hoverinfo="skip", showlegend=True,
         ))
         fig.update_layout(
             **PLOTLY_LAYOUT, height=400,
@@ -2126,8 +2464,12 @@ elif "Benchmark" in view:
     render_recommendation_strip("Cross-Facility Benchmark", facility)
     facility_areas = {"office": 5000, "warehouse": 15000, "datacentre": 3000}
 
-    all_cons = df[df["domain"] == "consumption"].groupby(
-        ["facility_id", "device_class"])["value"].sum().reset_index()
+    # Exclude non-energy context sensors so kWh/sqft reflects real energy use only.
+    _ENERGY_CLASSES = ("main_meter", "sub_meter", "hvac", "lighting")
+    all_cons = df[
+        (df["domain"] == "consumption")
+        & (df["device_class"].isin(_ENERGY_CLASSES))
+    ].groupby(["facility_id", "device_class"])["value"].sum().reset_index()
     all_demand = df[df["domain"] == "demand"].groupby(
         "facility_id")["value"].agg(["mean", "max"]).reset_index()
     all_cost = df[df["domain"] == "cost"].groupby(
@@ -2465,33 +2807,50 @@ elif "Sweep" in view:
     """)
 
     if st.button("Run Full Agent Sweep", type="primary", use_container_width=True):
+        import time as _time
         from ml.agents.orchestrator import EnergyOrchestrator
 
         orchestrator = EnergyOrchestrator()
+        # Qwen free tier is 7k input-tokens-per-minute; each agent burns ~3-5k tokens
+        # across its ReAct loop. We run strictly sequentially with a cool-down
+        # between agents so the per-minute window has time to refresh.
+        _COOLDOWN_SEC = 20
+        st.caption(f"Running agents sequentially with a {_COOLDOWN_SEC}s cool-down between each to stay inside the free-tier rate limit (~2 min total).")
 
         col1, col2 = st.columns(2)
+        _anomaly_slot = col1.empty()
+        _cost_slot    = col1.empty()
+        _forecast_slot = col2.empty()
+        _optimizer_slot = col2.empty()
 
-        with col1:
-            st.markdown("##### Anomaly Agent")
-            with st.spinner("Scanning for anomalies..."):
-                anomaly_result = orchestrator.anomaly_agent.monitor(facility)
-            st.info(anomaly_result)
+        _anomaly_slot.markdown("##### Anomaly Agent")
+        with st.spinner("Scanning for anomalies..."):
+            anomaly_result = orchestrator.anomaly_agent.monitor(facility)
+        _anomaly_slot.markdown(f"##### Anomaly Agent\n{anomaly_result}")
 
-            st.markdown("##### Cost Agent")
-            with st.spinner("Analyzing costs..."):
-                cost_result = orchestrator.cost_agent.analyze(facility)
-            st.info(cost_result)
+        with st.spinner(f"Cool-down ({_COOLDOWN_SEC}s) before next agent..."):
+            _time.sleep(_COOLDOWN_SEC)
 
-        with col2:
-            st.markdown("##### Forecast Agent")
-            with st.spinner("Generating forecasts..."):
-                forecast_result = orchestrator.forecast_agent.predict(facility)
-            st.info(forecast_result)
+        _forecast_slot.markdown("##### Forecast Agent")
+        with st.spinner("Generating forecasts..."):
+            forecast_result = orchestrator.forecast_agent.predict(facility)
+        _forecast_slot.markdown(f"##### Forecast Agent\n{forecast_result}")
 
-            st.markdown("##### Optimizer Agent")
-            with st.spinner("Finding optimizations..."):
-                optimizer_result = orchestrator.optimizer_agent.optimize(facility)
-            st.info(optimizer_result)
+        with st.spinner(f"Cool-down ({_COOLDOWN_SEC}s) before next agent..."):
+            _time.sleep(_COOLDOWN_SEC)
+
+        _cost_slot.markdown("##### Cost Agent")
+        with st.spinner("Analyzing costs..."):
+            cost_result = orchestrator.cost_agent.analyze(facility)
+        _cost_slot.markdown(f"##### Cost Agent\n{cost_result}")
+
+        with st.spinner(f"Cool-down ({_COOLDOWN_SEC}s) before next agent..."):
+            _time.sleep(_COOLDOWN_SEC)
+
+        _optimizer_slot.markdown("##### Optimizer Agent")
+        with st.spinner("Finding optimizations..."):
+            optimizer_result = orchestrator.optimizer_agent.optimize(facility)
+        _optimizer_slot.markdown(f"##### Optimizer Agent\n{optimizer_result}")
 
         st.success("Full sweep complete — all 4 agents reported")
 

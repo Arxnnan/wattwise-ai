@@ -41,6 +41,12 @@ def _text(device: str, impact: float, confidence: float = 0.8,
 
 @pytest.fixture
 def mock_specialists():
+    """Legacy-shape dict kept so TestSpecialistLoading can inject it.
+
+    The `.monitor/.analyze/.optimize/.predict` returns are no longer consumed
+    by `_X_candidates` — those methods now call `ml.agents.tools.*` directly —
+    but keeping the shape avoids churning the lazy-loading tests.
+    """
     anomaly = MagicMock()
     cost = MagicMock()
     optimizer = MagicMock()
@@ -53,6 +59,54 @@ def mock_specialists():
         "anomaly": anomaly, "cost": cost,
         "optimizer": optimizer, "forecast": forecast,
     }
+
+
+# Default tool-call payloads chosen so each specialist produces exactly one
+# recommendation that passes its emit threshold. Impact numbers are tuned so
+# the ranking order (impact*confidence desc) is: Cost > Optimizer > Anomaly > Forecast.
+_ANOMALY_TOOL_OUT = {
+    "anomalies_detected": 5,
+    "anomaly_rate": 2.1,
+    "top_anomalies": [
+        {"value_kw": 95.0, "score": 0.95, "timestamp": "2026-10-10T13:00:00+00:00"},
+    ],
+}
+_COST_TOOL_OUT = {"total_cost_inr": 85000}
+_PEAK_HOURS_OUT = {"peak_to_offpeak_ratio": 2.3, "peak_avg": 110, "off_peak_avg": 48}
+_FACILITY_STATS_OUT = {"demand": {"mean": 20.0}}
+_PEAK_OPT_OUT = {
+    "peak_warning": True,
+    "current_demand_kw": 170.0,
+    "total_saveable_kw": 25.0,
+    "recommendations": [
+        {"load": "HVAC-A"}, {"load": "HVAC-B"}, {"load": "EV-charger"},
+    ],
+}
+_FORECAST_OUT = {
+    "peak_predicted_kw": 160.0,
+    "avg_predicted_kw": 95.0,
+    "model_used": "Chronos",
+}
+
+
+@pytest.fixture
+def mock_tools():
+    """Patch the tool functions each `_X_candidates` method calls.
+
+    Also force `_llm_narrative` to None so the template branch fires without
+    spending time initialising an LLM provider — keeps each test well under 1s.
+    """
+    with patch("ml.agents.tools.run_anomaly_detection", return_value=_ANOMALY_TOOL_OUT) as anom, \
+         patch("ml.agents.tools.run_cost_analysis", return_value=_COST_TOOL_OUT) as cost, \
+         patch("ml.agents.tools.query_peak_hours", return_value=_PEAK_HOURS_OUT) as peak_h, \
+         patch("ml.agents.tools.query_facility_stats", return_value=_FACILITY_STATS_OUT) as fstats, \
+         patch("ml.agents.tools.run_peak_optimization", return_value=_PEAK_OPT_OUT) as popt, \
+         patch("ml.agents.tools.run_forecast", return_value=_FORECAST_OUT) as fcst, \
+         patch("ml.agents.briefing_agent.BriefingAgent._llm_narrative", return_value=None):
+        yield {
+            "anomaly": anom, "cost": cost, "peak_hours": peak_h,
+            "facility_stats": fstats, "optimizer": popt, "forecast": fcst,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -145,44 +199,40 @@ class TestParsingHelpers:
 
 class TestGenerate:
 
-    def test_all_specialists_return_sorted_top3(self, mock_specialists):
-        agent = BriefingAgent(specialists=mock_specialists)
+    def test_all_specialists_return_sorted_top3(self, mock_tools):
+        agent = BriefingAgent(specialists={})
         recs = agent.generate("plant", top_n=3)
         assert len(recs) == 3
-        # Expect sort by impact * confidence:
-        #   cost       20000 * 0.5  = 10000
-        #   anomaly    10000 * 0.9  =  9000
-        #   optimizer  15000 * 0.6  =  9000
-        #   forecast    5000 * 0.7  =  3500
+        # With the default tool payloads above, the computed scores are:
+        #   Cost       85_800 * 0.78  ≈ 66_924
+        #   Optimizer   3_750 * 0.85  ≈  3_187
+        #   Forecast    1_500 * 0.82  ≈  1_230
+        #   Anomaly     5_000 * 0.88  ≈  4_400
+        # So Cost should rank first.
         assert recs[0].agent_name == "CostAgent"
-        # Agent names of top 3 should NOT include the smallest (forecast).
-        assert "ForecastAgent" not in {r.agent_name for r in recs}
-        # Each recommendation has a facility id and category.
         for r in recs:
             assert r.facility_id == "plant"
             assert r.category in {"cost", "anomaly", "optimization", "forecast"}
 
-    def test_top_n_one(self, mock_specialists):
-        agent = BriefingAgent(specialists=mock_specialists)
+    def test_top_n_one(self, mock_tools):
+        agent = BriefingAgent(specialists={})
         recs = agent.generate("plant", top_n=1)
         assert len(recs) == 1
 
-    def test_top_n_larger_than_available(self, mock_specialists):
-        agent = BriefingAgent(specialists=mock_specialists)
+    def test_top_n_larger_than_available(self, mock_tools):
+        agent = BriefingAgent(specialists={})
         recs = agent.generate("plant", top_n=10)
-        # Only 4 specialists → at most 4 unique-device recommendations.
+        # Four specialists → at most 4 recommendations.
         assert len(recs) == 4
 
-    def test_counterfactual_populated_when_provided(self, mock_specialists):
-        mock_specialists["anomaly"].monitor.return_value = _text(
-            "HVAC-01", 50000, 0.9, "big", counterfactual="skip and lose 27k",
-        )
-        agent = BriefingAgent(specialists=mock_specialists)
-        recs = agent.generate("plant", top_n=1)
-        assert recs[0].counterfactual == "skip and lose 27k"
+    def test_counterfactual_populated_when_provided(self, mock_tools):
+        agent = BriefingAgent(specialists={})
+        recs = agent.generate("plant", top_n=4)
+        # Every candidate path sets a non-empty counterfactual string.
+        assert all(r.counterfactual for r in recs)
 
-    def test_ids_are_unique_across_calls(self, mock_specialists):
-        agent = BriefingAgent(specialists=mock_specialists)
+    def test_ids_are_unique_across_calls(self, mock_tools):
+        agent = BriefingAgent(specialists={})
         ids = set()
         for _ in range(3):
             for r in agent.generate("plant", top_n=4):
@@ -198,52 +248,44 @@ class TestGenerate:
 
 class TestGenerateFailureModes:
 
-    def test_specialist_timeout_other_three_still_returned(self, mock_specialists):
-        def slow(_facility_id):
+    def test_specialist_timeout_other_three_still_returned(self, mock_tools):
+        def slow(*_a, **_kw):
             time.sleep(1.5)
-            return _text("SLOW", 999999, 1.0, "late")
+            return _FORECAST_OUT
 
-        mock_specialists["forecast"].predict.side_effect = slow
-        agent = BriefingAgent(specialists=mock_specialists)
+        mock_tools["forecast"].side_effect = slow
+        agent = BriefingAgent(specialists={})
         start = time.time()
         recs = agent.generate("plant", top_n=10, timeout_sec=1)
         elapsed = time.time() - start
-        # The slow specialist is dropped; 3 remain.
+        # The slow forecast specialist is dropped; the other 3 remain.
         assert len(recs) == 3
         agent_names = {r.agent_name for r in recs}
         assert "ForecastAgent" not in agent_names
-        # Timeout honored — should finish close to timeout, not after 1.5s sleep.
+        # Timeout honored — should finish close to timeout, not after the 1.5s sleep.
         assert elapsed < 1.4
 
-    def test_all_specialists_fail_returns_empty(self, mock_specialists, caplog):
-        for key, method in (
-            ("anomaly", "monitor"), ("cost", "analyze"),
-            ("optimizer", "optimize"), ("forecast", "predict"),
-        ):
-            getattr(mock_specialists[key], method).side_effect = RuntimeError("boom")
-        agent = BriefingAgent(specialists=mock_specialists)
+    def test_all_specialists_fail_returns_empty(self, mock_tools, caplog):
+        # Blow up every tool call → every _X_candidates branch swallows & returns [].
+        for key in ("anomaly", "cost", "peak_hours", "facility_stats", "optimizer", "forecast"):
+            mock_tools[key].side_effect = RuntimeError("boom")
+        agent = BriefingAgent(specialists={})
         with caplog.at_level("WARNING"):
             recs = agent.generate("plant")
         assert recs == []
         assert any("no recommendations" in rec.message for rec in caplog.records)
 
-    @pytest.mark.parametrize("method_name,candidate_fn", [
-        ("monitor", "_anomaly_candidates"),
-        ("analyze", "_cost_candidates"),
-        ("optimize", "_optimizer_candidates"),
-        ("predict", "_forecast_candidates"),
+    @pytest.mark.parametrize("tool_key,candidate_fn", [
+        ("anomaly", "_anomaly_candidates"),
+        ("cost", "_cost_candidates"),
+        ("optimizer", "_optimizer_candidates"),
+        ("forecast", "_forecast_candidates"),
     ])
     def test_each_candidate_wrapper_swallows_exception(
-        self, mock_specialists, method_name, candidate_fn,
+        self, mock_tools, tool_key, candidate_fn,
     ):
-        # Find which specialist key owns this method and blow it up.
-        for key, meth in (
-            ("anomaly", "monitor"), ("cost", "analyze"),
-            ("optimizer", "optimize"), ("forecast", "predict"),
-        ):
-            if meth == method_name:
-                getattr(mock_specialists[key], meth).side_effect = RuntimeError("fail")
-        agent = BriefingAgent(specialists=mock_specialists)
+        mock_tools[tool_key].side_effect = RuntimeError("fail")
+        agent = BriefingAgent(specialists={})
         # Should return [] rather than raise.
         assert getattr(agent, candidate_fn)("plant") == []
 

@@ -1,691 +1,439 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WattWise AI — System Architecture (Production + Local Demo)</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WattWise AI: system architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:        #FAFBFB;
-    --surface:   #FFFFFF;
-    --surface-2: #F3F6F6;
-    --ink:       #0E1F1F;
-    --ink-mute:  #4C6666;
-    --ink-dim:   #8CA0A0;
-    --line:      #D7E2E2;
-    --line-soft: #ECF1F1;
-    --teal:      #28B3B4;
-    --teal-dark: #03514D;
-    --teal-mid:  #0B8FA3;
-    --lime:      #D6DF27;
-    --lime-dark: #a8b01f;
-    --amber:     #e0a93d;
-    --rose:      #e85d4f;
-    --radius:    12px;
-    --shadow-sm: 0 1px 2px rgba(14,31,31,0.04), 0 1px 1px rgba(14,31,31,0.02);
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --page:#EEF1F3;--card:#FFFFFF;--ink:#16323A;--muted:#5E727A;--line:#DCE3E7;--pill:#F0F3F5;
+  --green:#2E8B67;--green-bg:#F0F8F4;--green-line:#8CCBB0;
+  --gold:#C9B814;--gold-bg:#FFFDE8;--gold-line:#E6DA55;
+  --indigo:#4338CA;--indigo-bg:#ECEBFD;--amber:#B45309;--amber-bg:#FDF0DC;
+  --dark:#0F3D2E;--shadow:0 1px 3px rgba(20,40,50,.10);
+  --font:'DM Sans','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#0D1417;--card:#162026;--ink:#E5EEF1;--muted:#93A6AE;--line:#2A3A42;--pill:#1E2B32;
+    --green:#5FD0A3;--green-bg:#10241D;--green-line:#2F6B53;
+    --gold:#E8D84A;--gold-bg:#27230B;--gold-line:#6F6616;
+    --indigo:#B2B0FF;--indigo-bg:#25244F;--amber:#F2B25C;--amber-bg:#3A2B12;
+    --shadow:0 1px 3px rgba(0,0,0,.5);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    background: var(--bg); color: var(--ink);
-    font-size: 14px; line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-  .page {
-    max-width: 1680px; margin: 0 auto;
-    padding: 36px 48px 48px 48px;
-  }
-
-  /* Header */
-  .masthead {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 20px;
-  }
-  .masthead-l { display: flex; flex-direction: column; gap: 6px; }
-  .eyebrow {
-    text-transform: uppercase; letter-spacing: 0.14em;
-    color: var(--ink-dim); font-size: 10.5px; font-weight: 600;
-  }
-  .masthead h1 {
-    font-family: 'Fraunces', Georgia, serif;
-    font-size: 32px; font-weight: 500;
-    letter-spacing: -0.7px; line-height: 1.1;
-    color: var(--ink);
-  }
-  .masthead h1 .accent { color: var(--teal); font-style: italic; font-weight: 400; }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand-logo {
-    width: 36px; height: 36px;
-    background: var(--teal); color: #fff;
-    display: inline-flex; align-items: center; justify-content: center;
-    font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px;
-    border-radius: 8px; letter-spacing: -1px;
-  }
-  .brand-name { font-weight: 700; font-size: 17px; letter-spacing: -0.3px; color: var(--ink); }
-  .brand-tag { font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; }
-
-  /* Legend bar */
-  .legend {
-    display: flex; align-items: center; gap: 20px;
-    margin-bottom: 24px;
-    padding: 10px 16px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    font-size: 12px; color: var(--ink-mute);
-  }
-  .legend-item { display: inline-flex; align-items: center; gap: 7px; }
-  .legend .swatch {
-    width: 10px; height: 10px; border-radius: 3px;
-    display: inline-block;
-  }
-  .legend .swatch.prod { background: var(--teal); }
-  .legend .swatch.dev  { background: var(--surface-2); border: 1px solid var(--line); }
-  .legend .swatch.rmap { background: var(--amber); }
-  .legend strong { color: var(--ink); font-weight: 600; }
-  .legend .divider { color: var(--ink-dim); }
-
-  /* Main grid */
-  .grid {
-    display: grid;
-    grid-template-columns: 180px 1fr 260px;
-    gap: 20px;
-    align-items: start;
-  }
-
-  /* Section cards */
-  .col-section {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 16px;
-    box-shadow: var(--shadow-sm);
-  }
-  .col-section + .col-section { margin-top: 16px; }
-  .section-head {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 12px;
-  }
-  .section-head .ico {
-    width: 22px; height: 22px;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: var(--teal);
-  }
-  .section-head .title {
-    font-size: 13.5px; font-weight: 600; color: var(--ink);
-    letter-spacing: -0.1px;
-  }
-  .section-head .count {
-    margin-left: auto;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--ink-dim);
-    background: var(--surface-2);
-    padding: 1px 7px; border-radius: 999px;
-    border: 1px solid var(--line);
-  }
-
-  /* Users */
-  .user-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    margin-top: 10px;
-  }
-  .user-row:first-child { margin-top: 0; }
-  .user-avatar {
-    width: 32px; height: 32px; flex-shrink: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    background: var(--surface-2); color: var(--teal);
-    border-radius: 50%; font-weight: 600; font-size: 12px;
-  }
-  .user-info { line-height: 1.3; min-width: 0; }
-  .user-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
-  .user-role { font-size: 10.5px; color: var(--ink-dim); margin-top: 1px; }
-
-  /* Middle column — layers */
-  .layer-stack { display: flex; flex-direction: column; gap: 14px; }
-  .layer {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-  }
-  .layer-head {
-    display: flex; align-items: center;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--line);
-    background: var(--surface-2);
-  }
-  .layer-head .num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--teal);
-    background: rgba(40,179,180,0.1);
-    padding: 2px 7px; border-radius: 4px;
-    margin-right: 10px;
-    font-weight: 600;
-  }
-  .layer-head .title { font-size: 13.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.1px; }
-  .layer-head .sub { font-size: 11.5px; color: var(--ink-dim); margin-left: auto; }
-  .layer-body { padding: 12px 16px 14px; }
-
-  /* COMPONENT ROW — the key visual: prod name + dev substitute */
-  .components { display: flex; flex-wrap: wrap; gap: 6px; }
-  .cmp {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(40,179,180,0.06);
-    border: 1px solid rgba(40,179,180,0.3);
-    border-radius: 999px;
-    padding: 4px 11px;
-    font-size: 11.5px; font-weight: 600;
-    color: var(--teal-dark);
-    line-height: 1.3;
-  }
-  .cmp .dev {
-    color: var(--ink-dim);
-    font-weight: 400;
-    font-style: italic;
-    font-size: 10.5px;
-  }
-  .cmp.plain {
-    background: var(--surface);
-    border-color: var(--line);
-    color: var(--ink-mute);
-    font-weight: 500;
-  }
-  .cmp.roadmap {
-    background: rgba(224,169,61,0.08);
-    border-color: rgba(224,169,61,0.4);
-    color: var(--amber);
-    font-weight: 500;
-  }
-  .cmp.roadmap::after {
-    content: 'roadmap';
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    background: var(--amber);
-    color: #fff;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-left: 4px;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-  }
-
-  /* Agent orchestrator — highlight */
-  .orchestrator {
-    background: linear-gradient(135deg, rgba(40,179,180,0.07) 0%, rgba(214,223,39,0.05) 100%);
-    border: 1px solid rgba(40,179,180,0.3);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-  }
-  .orchestrator-head {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 10px;
-  }
-  .orchestrator-head .title {
-    font-family: 'Fraunces', serif;
-    font-size: 15px; font-weight: 500; color: var(--ink);
-    letter-spacing: -0.3px;
-  }
-  .orchestrator-head .title em { color: var(--teal); font-style: italic; font-weight: 400; }
-  .orchestrator-head .badge {
-    font-family: 'JetBrains Mono', monospace;
-    background: var(--teal); color: #fff;
-    font-size: 10px; font-weight: 600;
-    padding: 2px 7px; border-radius: 999px;
-    margin-left: auto;
-  }
-  .agent-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
-  }
-  .agent-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
-    text-align: center;
-  }
-  .agent-card .name { font-size: 12px; font-weight: 600; color: var(--ink); }
-  .agent-card .fn { font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
-  .label-micro {
-    font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase;
-    letter-spacing: 0.08em; font-weight: 600; margin: 10px 0 8px;
-  }
-
-  /* Right column rows */
-  .model-swap { display: flex; flex-direction: column; gap: 7px; }
-  .model-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 8px 11px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font-size: 12px;
-  }
-  .model-row .mn { color: var(--ink); font-weight: 600; }
-  .model-row .tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; font-weight: 500;
-    padding: 1px 6px; border-radius: 4px;
-    text-transform: uppercase; letter-spacing: 0.04em;
-  }
-  .tag.free  { color: var(--teal); background: rgba(40,179,180,0.1); }
-  .tag.local { color: var(--teal-dark); background: rgba(3,81,77,0.08); }
-  .tag.paid  { color: var(--amber); background: rgba(224,169,61,0.1); }
-
-  /* Bottom bar */
-  .bottom-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-top: 24px;
-  }
-  .bottom-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    box-shadow: var(--shadow-sm);
-  }
-  .bottom-card.hero {
-    background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal-mid) 100%);
-    border-color: var(--teal-dark);
-    color: #fff;
-  }
-  .bottom-card .bh {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-  }
-  .bottom-card .bh .title { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
-  .bottom-card .bh .ico { color: var(--teal); }
-  .bottom-card.hero .bh .ico, .bottom-card.hero .bh .title { color: #fff; }
-  .bottom-card .copy { font-size: 11.5px; color: var(--ink-mute); line-height: 1.55; }
-  .bottom-card.hero .copy { color: rgba(255,255,255,0.88); }
-  .bottom-card .copy strong { color: var(--ink); font-weight: 600; }
-  .bottom-card.hero .copy strong { color: var(--lime); }
-  .bottom-card .copy em { color: var(--ink-dim); font-style: italic; }
-  .bottom-card.hero .copy em { color: rgba(255,255,255,0.65); font-style: italic; }
-
-  /* Tracer banner */
-  .tracer {
-    display: flex; align-items: center; gap: 10px;
-    margin-top: 12px;
-    padding: 10px 14px;
-    background: var(--surface-2);
-    border: 1px dashed var(--line);
-    border-radius: 10px;
-    font-size: 11.5px; color: var(--ink-mute);
-  }
-  .tracer .ico { color: var(--teal); font-size: 14px; }
-  .tracer strong { color: var(--ink); font-weight: 600; }
-
-  /* Metadata footer */
-  .meta {
-    margin-top: 28px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line);
-    display: flex; justify-content: space-between;
-    font-size: 11px; color: var(--ink-dim);
-    text-transform: uppercase; letter-spacing: 0.08em;
-  }
-  .meta .m-right { font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; }
-
-  svg { display: block; }
-  @media (max-width: 1200px) {
-    .grid { grid-template-columns: 1fr; }
-    .bottom-row { grid-template-columns: 1fr 1fr; }
-  }
+}
+:root[data-theme="dark"]{
+  --page:#0D1417;--card:#162026;--ink:#E5EEF1;--muted:#93A6AE;--line:#2A3A42;--pill:#1E2B32;
+  --green:#5FD0A3;--green-bg:#10241D;--green-line:#2F6B53;
+  --gold:#E8D84A;--gold-bg:#27230B;--gold-line:#6F6616;
+  --indigo:#B2B0FF;--indigo-bg:#25244F;--amber:#F2B25C;--amber-bg:#3A2B12;
+  --shadow:0 1px 3px rgba(0,0,0,.5);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);font-size:12px;line-height:1.4;padding-bottom:24px}
+body.drawer-open{padding-bottom:46vh}
+button{font:inherit;color:inherit;text-align:left}
+#stage{overflow-x:auto;padding:16px 12px 0}
+#sizer{position:relative;margin:0 auto}
+#slide{position:absolute;left:0;top:0;width:1340px;transform-origin:0 0;background:var(--page);padding:0 6px 6px}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:14px}
+.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:500;color:var(--muted)}
+h1{margin:4px 0 0;font-size:28px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.seg{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;cursor:pointer;font-weight:500;font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--card)}
+.tgl{border:1px solid var(--line);background:var(--card);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:500;font-size:12px;box-shadow:var(--shadow)}
+.tgl[aria-pressed="true"]{background:var(--indigo-bg);color:var(--indigo);border-color:var(--indigo)}
+button:focus-visible{outline:3px solid var(--indigo);outline-offset:2px}
+#mfline{display:none;background:var(--indigo-bg);color:var(--indigo);border-radius:8px;padding:7px 12px;margin:-4px 0 12px;font-weight:500}
+.mf-on #mfline{display:block}
+.main{display:grid;grid-template-columns:170px 44px 200px 44px 628px 44px 198px;align-items:stretch}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.fill{flex:1}
+.lab{font-size:10.5px;letter-spacing:.12em;font-weight:500;color:var(--muted)}
+.hrow{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;cursor:pointer}
+.hrow .ic{flex:0 0 auto}
+.hrow b{font-size:15px;font-weight:700;line-height:1.15}
+.hrow small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.ic svg{width:26px;height:26px;display:block}
+.ic.sm svg{width:20px;height:20px}
+.person{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;background:none;border:0;padding:8px 4px;cursor:pointer;border-radius:10px;width:100%}
+.person .av{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.person .av svg{width:34px;height:34px}
+.person b{font-size:14px;font-weight:700}
+.person span{font-size:11px;color:var(--muted);line-height:1.3}
+.users .card{flex:1;justify-content:space-around}
+.pill{position:relative;background:var(--pill);border:1px solid transparent;border-radius:7px;padding:6px 8px;font-size:11.5px;font-weight:500;cursor:pointer;line-height:1.25;text-align:center}
+.pill:hover,.hrow:hover b,.li:hover,.gi:hover,.rrow:hover,.person:hover{border-color:var(--ink)}
+.person:hover{background:var(--pill)}
+.pstack{display:flex;flex-direction:column;gap:6px}
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pg .pill:last-child:nth-child(odd){grid-column:1/-1}
+.li{display:flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:6px;padding:4px 4px;cursor:pointer;font-size:12px;font-weight:500}
+.li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+.note{font-size:11px;color:var(--muted);line-height:1.35}
+.gapc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted)}
+.gapc .slot{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;gap:2px}
+.gapc .tx{font-size:10px;font-weight:500}
+.ar{position:relative;width:100%;height:2px;background:var(--muted);margin:0 2px}
+.ar::after{content:"";position:absolute;right:-1px;top:-4px;border-left:7px solid var(--muted);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.ar.dash{background:repeating-linear-gradient(90deg,var(--muted) 0 5px,transparent 5px 9px)}
+.spring{background:var(--green-bg);border:1.5px solid var(--green-line);border-radius:16px;padding:12px 14px 12px;display:flex;flex-direction:column;gap:10px}
+.spring .top{display:flex;align-items:center;gap:8px}
+.spring .top b{font-size:15px;font-weight:700}
+.spring .top small{font-size:11px;color:var(--muted);margin-left:6px}
+.inner{display:grid;grid-template-columns:150px 1fr 185px;gap:10px;flex:1}
+.stack{display:flex;flex-direction:column;gap:10px}
+.stack .card{flex:1}
+.gate{background:var(--gold-bg);border:1.5px solid var(--gold-line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:7px}
+.gate.off{opacity:.5;border-style:dashed}
+.gi{display:flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:6px;padding:3px 3px;cursor:pointer;font-size:11.5px;font-weight:500}
+.gi i{font-style:normal;flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--card);font-size:10.5px;display:flex;align-items:center;justify-content:center}
+.tracer{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;width:100%;font-size:11.5px}
+.rrow{position:relative;display:flex;align-items:flex-start;gap:8px;background:none;border:1px solid transparent;border-radius:8px;padding:5px 4px;cursor:pointer;width:100%}
+.rrow .ic{flex:0 0 auto;margin-top:1px}
+.rrow b{display:block;font-size:12px;font-weight:700;line-height:1.2}
+.rrow small{display:block;font-size:10.5px;color:var(--muted);line-height:1.3}
+.right .card{flex:1;justify-content:flex-start}
+.bottom{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.bcard{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;cursor:pointer;width:100%}
+.bcard b{display:block;font-size:13px;font-weight:700;margin-bottom:2px}
+.bcard span.d{font-size:11px;color:var(--muted);line-height:1.35;display:block}
+.bcard.dark{background:var(--dark);border-color:var(--dark);color:#fff}
+.bcard.dark span.d{color:#CFE5DB}
+.off{opacity:.45}
+.off:not(.gate){border-style:dashed}
+.sel{outline:2px solid var(--ink);outline-offset:1px}
+.mfn{position:absolute;top:-8px;left:-8px;width:18px;height:18px;border-radius:50%;background:var(--indigo);color:var(--card);font-style:normal;font-size:10.5px;font-weight:500;display:none;align-items:center;justify-content:center}
+.mf-on .mfn{display:flex}
+.mf-on .pill,.mf-on .li,.mf-on .gi,.mf-on .rrow,.mf-on .hrow,.mf-on .person,.mf-on .bcard,.mf-on .tracer{opacity:.4}
+.mf-on .pill.mf{opacity:1;background:var(--indigo-bg);color:var(--indigo);border-color:var(--indigo)}
+.mf-on .rrow.mf{opacity:1;background:var(--indigo-bg);border-color:var(--indigo)}
+.mf-on .soft{opacity:1;border-color:var(--amber)}
+.note-foot{text-align:center;color:var(--muted);font-size:11px;margin-top:8px}
+#drawer{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:var(--card);border-top:2px solid var(--ink);box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px));font-size:14px;line-height:1.55;display:none;z-index:10}
+body.drawer-open #drawer{display:block}
+#drawer .dh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px}
+#drawer h2{margin:0;font-size:20px;line-height:1.2}
+.dtag{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:10px;background:var(--pill);color:var(--muted);margin-right:6px;margin-bottom:4px}
+.dtag.m{background:var(--indigo-bg);color:var(--indigo)}
+.dtag.live{background:var(--green-bg);color:var(--green)}
+.dtag.ready{background:var(--gold-bg);color:#8a6f0b}
+.dtag.local{background:var(--pill);color:var(--muted)}
+.dtag.rmap{background:var(--amber-bg);color:var(--amber)}
+#close{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500;flex:0 0 auto}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+#drawer h3{margin:0 0 4px;font-size:13px}
+#drawer p{margin:0}
+#drawer ul{margin:0;padding-left:18px}
+#drawer li{margin-bottom:3px}
+.lib{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0!important}
+.lib li{background:var(--pill);border-radius:12px;padding:2px 10px;font-size:12.5px;margin:0}
+.callout{background:var(--green-bg);border-left:4px solid var(--green);padding:8px 12px}
+.metab{background:var(--indigo-bg);border-left:4px solid var(--indigo);padding:8px 12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+button.card{text-align:left;cursor:pointer;font:inherit;color:inherit}
+.card.lg{border-style:dashed}
+.mf-on .card.lg{opacity:.4}
+.gapc .tx{white-space:nowrap}
 </style>
 </head>
 <body>
-<div class="page">
+<div id="stage"><div id="sizer"><div id="slide"></div></div></div>
+<p class="note-foot">Click any box for a plain-English explanation. Press Esc to close. Best viewed on a wide screen; on a phone, scroll sideways.</p>
+<div id="drawer" role="region" aria-label="Details" aria-live="polite"></div>
 
-  <!-- Masthead -->
-  <div class="masthead">
-    <div class="masthead-l">
-      <div class="eyebrow">System Architecture · Production target with local-demo stack</div>
-      <h1>WattWise AI <span class="accent">· agentic energy intelligence</span></h1>
-    </div>
-    <div class="brand">
-      <div class="brand-logo">W</div>
-      <div>
-        <div class="brand-name">WattWise AI</div>
-        <div class="brand-tag">IMPACT pSiddhi 3.0 · S4-I-14</div>
-      </div>
-    </div>
-  </div>
+<script>
+// Deployment modes replace "approaches" — Local / Hybrid (current) / Full Azure
+const AP = {
+  1:{s:'1. Local demo'},
+  2:{s:'2. Hybrid (current)'},
+  3:{s:'3. Full Azure'}
+};
+const S = {ap:2, sel:null, mf:false};
+// 7 boxes highlighted when "Show data flow" is on — the end-to-end journey
+const MF = ['x_meters','p_mqtt','d_clickhouse','a_agents','v_briefing','t_actionh','x_bms'];
+const MFSOFT = ['v_streamlit','g_llm'];
 
-  <!-- Legend bar -->
-  <div class="legend">
-    <span class="legend-item"><span class="swatch prod"></span><strong>Teal pill</strong> = production component</span>
-    <span class="divider">·</span>
-    <span class="legend-item"><em style="color:var(--ink-dim);">(italics in brackets)</em> = <strong>local-demo substitute</strong></span>
-    <span class="divider">·</span>
-    <span class="legend-item"><span class="swatch rmap"></span><strong>Amber pill</strong> = planned / roadmap</span>
-  </div>
+const I = {
+// ---- USERS ----
+u_admin:{t:'Admin',tag:'People',st:'live',w:`The owner persona. Full access to every dashboard, every setting, and the audit log. In the demo, this is the account used to review all 10 views and to approve high-impact actions.`,l:[],m:`The audit log reader. Needed because someone has to configure the system and prove nothing fires without a human decision.`},
+u_operator:{t:'Operator',tag:'People',st:'live',w:`The facility manager persona. Spends about 15 minutes a day on the Morning Briefing — reads three AI cards in plain English and clicks Approve, Snooze or Dismiss on each.`,l:[],m:`The 'advised' human. Every state-changing action requires this user's click — the system never acts on its own.`},
+u_viewer:{t:'Viewer',tag:'People',st:'live',w:`Read-only persona for stakeholders — CFO, ESG lead, auditor. Can read every dashboard and every AI recommendation, but cannot approve actions or change settings.`,l:[],m:`Separation of duties. Proves non-technical stakeholders can be served safely without admin surface.`},
 
-  <!-- Main grid -->
-  <div class="grid">
+// ---- DASHBOARD VIEWS (middle-left column) ----
+v_streamlit:{t:'Streamlit app',tag:'Dashboard',st:'live',w:`The web UI at localhost:8501. Serves 10 views, dark theme, teal + lime on near-black. Session survives browser refresh via a signed URL token.`,l:['Streamlit 1.61','Plotly','Fraunces + Inter fonts','SHA-256 session token'],m:`What every user actually looks at. Reads from ClickHouse and the agent cache; never writes to building state directly.`},
+v_briefing:{t:'Morning Briefing',tag:'Dashboard · daily',st:'live',w:`The daily landing page. The top 3 AI recommendations shown as cards with Problem, Solution and Evidence in plain English. One click to Approve, Snooze or Dismiss.`,l:['BriefingAgent fan-out','ThreadPoolExecutor','st.dialog modal'],m:`The 'if operators do nothing else, they do this' view. One minute to read, three clicks to act.`},
+v_realtime:{t:'Real-Time Consumption',tag:'Dashboard · ops',st:'live',w:`Live stacked chart of kWh by energy device — main meter, sub-meter, HVAC and lighting. Weather and occupancy are excluded so the chart reflects power only.`,l:['Plotly stacked area','ai_caption 3-tier narrative'],m:`First stop when something feels off. Shows the daily rhythm and highlights the dominant load.`},
+v_demand:{t:'Demand Pattern Analysis',tag:'Dashboard · ops',st:'live',w:`15-minute rolling kW chart with a user-settable red threshold line. Counts exceedances — moments the building crossed into demand-charge territory.`,l:['Plotly line + hline','95th percentile default'],m:`Explains why Indian bills have two parts: units used (kWh) and peak power pulled (kW at ₹150/kW/month).`},
+v_cost:{t:'Cost Analysis',tag:'Dashboard · ops',st:'live',w:`Rupees spent over time, with ToU rate boxes: ₹12/kWh peak (9AM-6PM), ₹5.5/kWh off-peak (11PM-6AM), ₹150/kW/month demand charge.`,l:['ml.cost_engine','TouRateConfig'],m:`The money view. CostAgent reads this and spots load-shift opportunities.`},
+v_aiopt:{t:'AI Optimization',tag:'Dashboard · ops',st:'live',w:`Three tabs: Anomaly Detection (PyOD ensemble), Demand Forecast (Chronos T5), Peak Shaving (XGBoost load ranker). Each anomaly has a drill-down Investigate button that opens a ForensicAgent reasoning modal.`,l:['PyOD','Chronos T5','XGBoost','st.dialog'],m:`The control room. Three ML models answer three different questions: what went weird, what's about to go weird, what to shed right now.`},
+v_bench:{t:'Cross-Facility Benchmark',tag:'Dashboard · ops',st:'live',w:`Side-by-side comparison of all 3 facilities on kWh per sqft, cost per sqft, average and peak demand. k-means clustering groups facilities by load shape.`,l:['sklearn KMeans','Plotly bars'],m:`Portfolio-level view. Tells a multi-site operations director which facility to fix first.`},
+v_chat:{t:'AI Chat Agent',tag:'Dashboard · ops',st:'live',w:`Natural-language questions over all facilities. ChatAgent uses 10 tools and a ReAct loop (Observe → Think → Act). Each answer shows the tools it called so operators can trust the result.`,l:['Qwen 3.8-27b via Groq','10 registered tools'],m:`Operator's ask-me-anything interface. No need to know where data lives.`},
+v_sweep:{t:'Full Agent Sweep',tag:'Dashboard · ops',st:'live',w:`Runs all 4 specialists in parallel for the selected facility — like a full physical. Fault-tolerant: if a specialist times out, the other three still return their findings.`,l:['EnergyOrchestrator.full_sweep','ThreadPoolExecutor'],m:`See everything the AI thinks about a facility in one place.`},
+v_settings:{t:'Alert Settings',tag:'Dashboard · admin',st:'live',w:`Admin-only configuration page. LLM provider, SMTP, Twilio, BMS webhook URL, alert recipients. Changes save instantly to .streamlit/alert_settings.json — no restart.`,l:['Streamlit forms','os.environ hot-reload'],m:`One page for every configurable knob. Credentials gitignored.`},
+v_audit:{t:'Audit Log',tag:'Dashboard · admin',st:'live',w:`Admin-only timeline of ai_suggested, human_decided and action_executed events. Append-only JSONL file. Immutable. Timestamps in UTC.`,l:['triggers.action_handler.read_log','approval-rate stats'],m:`The accountability contract. If someone asks 'who approved this?', the answer is one row away.`},
 
-    <!-- LEFT: Users -->
-    <div>
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </span>
-          <span class="title">Users</span>
-          <span class="count">4 personas</span>
-        </div>
-        <div class="user-row"><div class="user-avatar">FM</div><div class="user-info"><div class="user-name">Facility Manager</div><div class="user-role">Daily ops, alerts</div></div></div>
-        <div class="user-row"><div class="user-avatar">CF</div><div class="user-info"><div class="user-name">CFO / Finance</div><div class="user-role">Cost projections</div></div></div>
-        <div class="user-row"><div class="user-avatar">ES</div><div class="user-info"><div class="user-name">ESG Lead</div><div class="user-role">BRSR, Scope 2</div></div></div>
-        <div class="user-row"><div class="user-avatar">OD</div><div class="user-info"><div class="user-name">Ops Director</div><div class="user-role">Multi-site view</div></div></div>
-      </div>
+// ---- CORE SERVICE INNER CARDS ----
+// Left — API / platform
+a_auth:{t:'Login + roles',tag:'API & platform',st:'live',w:`Three hard-coded accounts for the demo: admin, operator, viewer. Session rehydrates from a SHA-256 token in the URL, so refresh never kicks you out mid-demo.`,l:['Streamlit session_state','hashlib SHA-256'],m:`Who did what, carried into every audit log entry.`},
+a_roles:{t:'View routing',tag:'API & platform',st:'live',w:`Enforces which views each role can open. Admin sees all 10 including Audit Log; operator sees daily ops; viewer is read-only.`,l:['Python dict-based ACL'],m:`Role → allowed-views mapping.`},
+a_llmprov:{t:'LLM wrapper',tag:'API & platform',st:'live',w:`One Python interface over 6 backends — Groq, Gemini, Ollama, OpenAI, Anthropic, HuggingFace. Auto-selects the first available. Falls back to a NullProvider that returns None so template paths still work.`,l:['ml.agents.llm_provider','Qwen 3.8-27b active'],m:`The de-lock-in layer. If one provider rate-limits, swap in 1 second via Alert Settings.`},
+a_errors:{t:'Graceful degradation',tag:'API & platform',st:'live',w:`When creds are missing or a provider is down, the system logs and continues. SMTP missing → log-only. BMS webhook missing → status 'logged'. LLM down → template fallback.`,l:['try/except with structured log'],m:`Never crashes. Every failure path returns a dict describing what happened.`},
+a_logging:{t:'Structured logging',tag:'API & platform',st:'live',w:`Every agent step, tool call, dispatch result goes to Python logging. Ready to pipe into Azure Monitor / Application Insights (both providers registered).`,l:['Python logging','stdout + file'],m:`Trace every AI action from input query to tool output to final answer.`},
 
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </span>
-          <span class="title">Facilities</span>
-          <span class="count">3 sites</span>
-        </div>
-        <div class="components" style="margin-top:10px;">
-          <span class="cmp plain">Office HQ</span>
-          <span class="cmp plain">Warehouse</span>
-          <span class="cmp plain">Data Centre</span>
-        </div>
-      </div>
+// Center — AI / ML core
+a_agents:{t:'Agent system',tag:'AI / ML core',st:'live',w:`Multi-agent system built on a ReAct loop. 4 specialists each own a domain. 3 meta-agents orchestrate them. 1 chat agent answers free-form questions.`,l:['BaseAgent + ReAct','MAX_ITERATIONS=5'],m:`The brain. Reads from the DB, writes recommendations to the dashboard.`},
+ag_anom:{t:'AnomalyAgent',tag:'Specialist agent',st:'live',w:`Watches for unusual spikes or dips. Calls PyOD ensemble + LSTM Autoencoder as tools. Returns ranked top anomalies with timestamps and scores.`,l:['PyOD','LSTM-AE','4 tools'],m:`Answers: 'Is something broken or off-schedule?'`},
+ag_forecast:{t:'ForecastAgent',tag:'Specialist agent',st:'live',w:`Predicts the next 24 hours of load. Calls Chronos T5 (Amazon foundation model). Flags days where predicted peak will exceed the 150 kW demand-charge threshold.`,l:['Chronos T5 tiny','4 tools'],m:`Answers: 'What's going to happen tomorrow and should I pre-cool?'`},
+ag_cost:{t:'CostAgent',tag:'Specialist agent',st:'live',w:`Watches the bill and finds load-shifting savings. Runs the ToU cost engine. Identifies loads running during ₹12/kWh peak that could shift to ₹5.5/kWh off-peak.`,l:['ToU cost engine','4 tools'],m:`Answers: 'Where is money being wasted on tariff mix?'`},
+ag_optim:{t:'OptimizerAgent',tag:'Specialist agent',st:'live',w:`Picks which loads to shed when demand approaches the limit. Runs XGBoost load-ranker. Protects critical loads (server rooms). Returns a shortlist with kW savings.`,l:['XGBoost','5 tools'],m:`Answers: 'If I must shed load now, what hurts least?'`},
+ag_brief:{t:'BriefingAgent',tag:'Meta-agent',st:'live',w:`Fans out to all 4 specialists in parallel each morning. Collects every recommendation, ranks them by impact × confidence, writes each as a Problem/Solution/Evidence card.`,l:['ThreadPoolExecutor','15s per-specialist timeout','LLM narrative + template fallback'],m:`Powers the Morning Briefing page.`},
+ag_forensic:{t:'ForensicAgent',tag:'Meta-agent',st:'live',w:`Drill-down specialist. Given an anomaly, produces a ForensicCard: why_flagged, hypothesis, recommended action, draft work order ready to paste into ServiceNow.`,l:['107 statements','100% test coverage','40 tests'],m:`Turns a raw anomaly score into something a technician can act on.`},
+ag_orch:{t:'EnergyOrchestrator',tag:'Meta-agent',st:'live',w:`Routes free-form questions to the right specialists. Full-sweep mode runs all 4 in parallel for a health check.`,l:['Keyword routing','parallel execution'],m:`Keeps the specialists loosely coupled — any one can be swapped without touching the others.`},
+ag_chat:{t:'ChatAgent',tag:'Meta-agent',st:'live',w:`Natural-language assistant with 10 registered tools. Uses ReAct loop. Picks the right tool for each question and composes a plain-English answer.`,l:['10 tools','ReAct loop','ChatAgent class'],m:`What makes AI Chat view work.`},
 
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
-          </span>
-          <span class="title">Auth</span>
-        </div>
-        <div class="components" style="margin-top:10px;">
-          <span class="cmp">Entra ID / Auth0 <span class="dev">(dev: 3 hard-coded accounts)</span></span>
-        </div>
-      </div>
-    </div>
+ml_pyod:{t:'PyOD ensemble',tag:'ML model',st:'live',w:`Ensemble of outlier-detection algorithms — IsolationForest, COPOD, ECOD. Scores every reading for 'how unusual'. F1 = 0.927 against the RFP target of 0.88.`,l:['PyOD'],m:`Primary anomaly tool. Exceeds the RFP gate by about 5%.`},
+ml_lstm:{t:'LSTM Autoencoder',tag:'ML model',st:'live',w:`Recurrent neural network that learns normal load shapes and flags reconstructions that diverge. Catches time-shaped anomalies that point-based detectors miss.`,l:['TensorFlow / Keras'],m:`Secondary anomaly tool — complements PyOD. ROC-AUC ≥ 0.90 meets the RFP gate.`},
+ml_chronos:{t:'Chronos T5',tag:'ML model',st:'live',w:`Amazon's open-weight time-series foundation model. Zero-shot forecasting — no per-site training. Tuning in progress for the RFP's 8% MAPE target; stock tiny model needs seasonal preprocessing.`,l:['chronos-forecasting','Hugging Face'],m:`The forecasting engine behind ForecastAgent.`},
+ml_xgb:{t:'XGBoost ranker',tag:'ML model',st:'live',w:`Gradient-boosted decision trees that rank loads by how deferrable they are. Server rooms score 0 (never shed); EV chargers score near 1 (always safe).`,l:['XGBoost 2.1'],m:`Decision model behind safe load shedding.`},
+ml_kmeans:{t:'k-means clustering',tag:'ML model',st:'live',w:`Groups facilities by load shape. Flags facilities that are far from their cluster peers — likely optimisation targets.`,l:['scikit-learn KMeans'],m:`Powers the Cross-Facility Benchmark view.`},
+ml_evid:{t:'Evidently drift',tag:'ML model',st:'live',w:`Measures whether today's data distribution still looks like what the models were trained on. Flags when retraining is needed.`,l:['Evidently'],m:`Trust-and-safety for the ML models.`},
+ml_cost:{t:'ToU cost engine',tag:'ML model',st:'live',w:`Indian commercial Time-of-Use tariff calculator. Peak ₹12/kWh (9AM-6PM), off-peak ₹5.5/kWh (11PM-6AM), demand charge ₹150/kW/month, 15% weekend discount.`,l:['ml.cost_engine'],m:`Translates kWh into ₹ so recommendations have real monetary weight.`},
 
-    <!-- MIDDLE: 5-layer stack -->
-    <div class="layer-stack">
+// Right (gate) — LLM providers inside the gold-tinted "AI gate"
+g_llm:{t:'LLM providers',tag:'AI gate',st:'live',w:`6 interchangeable LLM backends behind one wrapper. Only one is active at a time, selected via LLM_PROVIDER env var.`,l:[],m:`The AI narrative engine. If one fails, swap in 1 second.`},
+g_groq:{t:'Groq · Qwen 3.8-27b',tag:'LLM backend',st:'live',used:[2,3],w:`Our active LLM. Hosted by Groq at ~500 tokens/sec. Free tier: 7,000 input-tokens-per-minute. Powers chat answers and recommendation narratives.`,l:['Qwen 3.8-27b','Groq cloud'],m:`Active provider. ReAct loop capped at 5 iterations to stay inside the per-minute window.`},
+g_gemini:{t:'Google Gemini',tag:'LLM backend',st:'ready',w:`Google's fast cheap Gemini Flash. Free tier: 20 req/day. Previously the default — swapped to Groq due to daily quota.`,l:['gemini-flash-latest'],m:`Primary fallback. Set LLM_PROVIDER=gemini to switch.`},
+g_ollama:{t:'Ollama (local)',tag:'LLM backend',st:'ready',w:`Run any open-weight model entirely offline — Llama, Qwen, Phi. Zero network, zero cost. Model size limited by local RAM.`,l:['Ollama'],m:`Offline/privacy mode for air-gapped deployments.`},
+g_openai:{t:'OpenAI GPT-4o',tag:'LLM backend',st:'ready',w:`OpenAI's flagship model. Highest quality, paid. Best narrative quality.`,l:['OpenAI SDK'],m:`Premium option. Set OPENAI_API_KEY to use.`},
+g_claude:{t:'Anthropic Claude',tag:'LLM backend',st:'ready',w:`Anthropic's Claude family. 200k token context. Excellent for forensic drill-downs.`,l:['Anthropic SDK'],m:`Premium option. Set ANTHROPIC_API_KEY to use.`},
+g_hf:{t:'HuggingFace',tag:'LLM backend',st:'ready',w:`Free Inference API — any open-weight model with a hosted endpoint.`,l:['HF Inference API'],m:`The 'try anything' fallback.`},
 
-      <!-- Layer 1 -->
-      <div class="layer">
-        <div class="layer-head">
-          <span class="num">01</span>
-          <span class="title">IoT Ingestion</span>
-          <span class="sub">source-agnostic · MQTT · AMQP</span>
-        </div>
-        <div class="layer-body">
-          <div class="components">
-            <span class="cmp">Smart meters via Modbus/BACnet <span class="dev">(dev: synthetic simulator)</span></span>
-            <span class="cmp">Azure IoT Hub <span class="dev">(dev: Mosquitto broker)</span></span>
-            <span class="cmp">Event Hub consumer <span class="dev">(dev: direct MQTT subscriber)</span></span>
-            <span class="cmp plain">paho-mqtt 2.1</span>
-            <span class="cmp plain">SAS token publisher</span>
-            <span class="cmp plain">3 domains · consumption · demand · cost</span>
-          </div>
-        </div>
-      </div>
+// Right stack — IoT ingestion adapter (equivalent to mainApp adapter)
+p_sim:{t:'Device simulator',tag:'IoT ingestion',st:'local',w:`Python code that pretends to be real smart meters. Generates realistic kW readings for 3 facilities × 6 device types. Follows daily/weekly patterns and injects anomaly spikes.`,l:['ingestion.simulator','paho-mqtt publisher'],m:`Stands in for real meters during the demo. Same message shape as real OEM gateways.`},
+p_mqtt:{t:'Mosquitto broker',tag:'IoT ingestion',st:'local',w:`Small open-source MQTT message broker. Receives every reading the simulator publishes and delivers it to the pipeline subscriber.`,l:['Mosquitto in Docker'],m:`Local stand-in for Azure IoT Hub. Identical publish/subscribe pattern.`},
+p_iothub:{t:'Azure IoT Hub',tag:'IoT ingestion',st:'ready',used:[3],w:`Microsoft's managed IoT message broker — production replacement for Mosquitto. Handles millions of devices with built-in auth. Provider registered + role granted; one az CLI command away.`,l:['Microsoft.Devices','SAS token auth'],m:`Not provisioned yet. Previously 'RBAC blocked' — that gap is now resolved.`},
+p_schema:{t:'Schema validator',tag:'IoT ingestion',st:'live',w:`Dataclass + validators that every incoming message must pass. Checks types (kW is float, timestamp UTC-aware), units (consumption in kWh, demand in kW), and rejects malformed messages without crashing.`,l:['TelemetryReading dataclass'],m:`Quality gate at the front door. Bad data never reaches ClickHouse.`},
+p_pipeline:{t:'MQTT subscriber',tag:'IoT ingestion',st:'live',w:`Pulls messages off MQTT, validates each one, buffers in memory and flushes to ClickHouse in batches for efficiency.`,l:['paho-mqtt','clickhouse-connect'],m:`The pump that keeps ClickHouse fed.`},
+p_eh:{t:'Event-Hub consumer',tag:'IoT ingestion',st:'ready',used:[3],w:`Alternative pipeline that reads from Azure IoT Hub's built-in Event-Hub endpoint. Produces identical ClickHouse row shape as the MQTT path.`,l:['azure.eventhub'],m:`Production ingestion path. Needs IoT Hub to be provisioned.`},
 
-      <!-- Layer 2 -->
-      <div class="layer">
-        <div class="layer-head">
-          <span class="num">02</span>
-          <span class="title">Analytics Store</span>
-          <span class="sub">time-series + OLAP</span>
-        </div>
-        <div class="layer-body">
-          <div class="components">
-            <span class="cmp">ClickHouse Cloud <span class="dev">(dev: single-node Docker)</span></span>
-            <span class="cmp">Azure Data Lake Gen2 <span class="dev">(dev: Azurite emulator)</span></span>
-            <span class="cmp plain">DuckDB 1.0 · ad-hoc</span>
-            <span class="cmp plain">dbt-core 1.8</span>
-            <span class="cmp plain">4 tables · telemetry · demand_15min · anomaly_events · forecasts</span>
-          </div>
-        </div>
-      </div>
+t_actionh:{t:'ActionHandler',tag:'Human-approved pipeline',st:'live',w:`The guardrail. Records AI suggestions, waits for a human decision, then dispatches ONLY if approved or modified. Dismissed and snoozed outcomes raise before dispatch.`,l:['triggers.action_handler','117 statements','100% coverage'],m:`Code refuses to execute without a logged human decision.`},
+t_dispatch:{t:'Dispatch module',tag:'Human-approved pipeline',st:'live',w:`Takes an approved shed/schedule command and POSTs it to the BMS endpoint. Bearer-token auth. Returns status: sent / http_error / failed / logged.`,l:['triggers.dispatch','requests + Bearer'],m:`The wire-level call that changes building state.`},
+t_triggerh:{t:'Alert dispatcher',tag:'Auto-fire channel',st:'live',w:`Auto-fires notification alerts (email + SMS) when anomalies arrive. Multi-recipient, graceful degradation when creds missing. Never changes building state — notifications only.`,l:['triggers.handler','smtplib','Gmail port 465 SSL'],m:`The 'inform only' side of Layer 4.`},
+t_audit:{t:'Audit log',tag:'Human-approved pipeline',st:'live',w:`Append-only JSONL at .streamlit/audit_log.jsonl. Records every ai_suggested, human_decided and action_executed event. UTC-timestamped. Immutable.`,l:['JSONL append-only'],m:`If someone asks 'who approved this?', the answer is one row away.`},
 
-      <!-- Layer 3 — AI/ML Core -->
-      <div class="layer">
-        <div class="layer-head">
-          <span class="num">03</span>
-          <span class="title">AI / ML Core</span>
-          <span class="sub">3 RFP scenarios + agentic layer</span>
-        </div>
-        <div class="layer-body">
+// ---- RIGHT COLUMN ----
+// Helper services
+h_mockbms:{t:'Mock BMS',tag:'Helper service',st:'live',w:`Standalone FastAPI server at localhost:9100 that pretends to be a real Building Management System. Receives shed/schedule/dispatch commands via HTTP POST. Shows building state updating in real time on its own dashboard. Thread-safe.`,l:['FastAPI','threading','auto-refresh HTML dashboard'],m:`Closes the demo loop end-to-end. Approve in WattWise → HTTP POST → Mock BMS state changes.`},
+h_gmail:{t:'Gmail SMTP',tag:'Helper service',st:'live',w:`Live email channel for alerts. Sends from a configured Gmail account via port 465 SSL (user network blocks 587). Multi-recipient support. Verified end-to-end this session.`,l:['smtplib','SSL on 465'],m:`The alert channel actually used for the demo. Swappable with ACS without code changes.`},
+h_fnapp:{t:'Azure Functions',tag:'Helper service',st:'live',w:`The deployed Function App in rg-pSiddhi3.0-2026-01-sem4-Arunn. Two HTTP triggers: bms_webhook, handle_event. Linux Consumption plan — pay per execution, near-zero when idle.`,l:['Azure Functions v4','Python 3.11'],m:`The one piece of this architecture that is actually live in Azure today.`},
+h_acs:{t:'Azure ACS',tag:'Helper service',st:'ready',used:[3],w:`Microsoft's managed email + SMS. Not provisioned yet. Microsoft.Communication provider registered + Contributor role granted — one command to create.`,l:['Microsoft.Communication'],m:`Ready to create. Using Gmail SMTP as the demo substitute.`},
+h_twilio:{t:'Twilio SMS',tag:'Helper service',st:'rmap',w:`SMS gateway for critical alerts. Optional/demo-only channel. Code path exercised through fallback; no account provisioned.`,l:['twilio-python'],m:`Future enhancement.`},
 
-          <!-- Orchestrator panel -->
-          <div class="orchestrator">
-            <div class="orchestrator-head">
-              <span class="title">Agent orchestrator · <em>AI advises, human decides</em></span>
-              <span class="badge">ReAct</span>
-            </div>
-            <div class="agent-grid">
-              <div class="agent-card"><div class="name">AnomalyAgent</div><div class="fn">4 tools</div></div>
-              <div class="agent-card"><div class="name">ForecastAgent</div><div class="fn">4 tools</div></div>
-              <div class="agent-card"><div class="name">CostAgent</div><div class="fn">4 tools</div></div>
-              <div class="agent-card"><div class="name">OptimizerAgent</div><div class="fn">5 tools</div></div>
-            </div>
-            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap: wrap;">
-              <span class="cmp">ChatAgent · 10 tools · natural-language Q&amp;A</span>
-              <span class="cmp">Full-sweep · parallel 4-agent health check</span>
-              <span class="cmp">BriefingAgent · parallel fan-out → ranked actions</span>
-              <span class="cmp">ForensicAgent · drill-down reasoning chain</span>
-            </div>
-          </div>
+// Data & secrets
+d_clickhouse:{t:'ClickHouse',tag:'Data store',st:'local',w:`Column-store database tuned for time-series + analytics. Runs in Docker locally. Holds every sensor reading in a 4-table schema (telemetry, demand_15min, anomaly_events, forecasts).`,l:['ClickHouse 24.8','clickhouse-connect'],m:`The hot-path store. ML models and dashboards both read from here.`},
+d_duckdb:{t:'DuckDB',tag:'Data store',st:'local',w:`Tiny analytics database that runs inside a Python process. No server. Great for ad-hoc queries and notebook work.`,l:['DuckDB 1.x'],m:`Quick-and-dirty analytics tool.`},
+d_blob:{t:'Azure Blob',tag:'Data store',st:'live',w:`Microsoft's object storage. StorageV2 account wattwiseblob2026 in Hot/LRS tier. Holds ML artefacts and the Function App's runtime storage. LIVE.`,l:['Azure Storage SDK'],m:`Provisioned alongside the Function App.`},
+d_settings:{t:'Local settings',tag:'Secrets',st:'local',w:`JSON file at .streamlit/alert_settings.json. Holds LLM keys, SMTP creds, BMS webhook URL. Gitignored. Loaded into os.environ at app startup; hot-reloads when Alert Settings is saved.`,l:['JSON','os.environ'],m:`Demo-friendly local secret store. Rotation reminder after demo.`},
+d_vault:{t:'Azure Key Vault',tag:'Secrets',st:'ready',used:[3],w:`Microsoft's managed secret store. Not provisioned yet. Microsoft.KeyVault provider registered + Contributor granted.`,l:['Azure Key Vault SDK'],m:`Production secret store. Managed identities read secrets without hard-coded keys.`},
+d_insights:{t:'App Insights',tag:'Observability',st:'ready',used:[3],w:`Microsoft's observability — distributed traces, metrics, logs. Provider registered + role granted. Would correlate logs across Function invocations.`,l:['Microsoft.Insights','OpenTelemetry'],m:`Logs currently go to stdout + audit JSONL.`},
 
-          <div class="label-micro">Deterministic ML — the agents call these as tools</div>
-          <div class="components">
-            <span class="cmp plain">PyOD ensemble · F1=0.927</span>
-            <span class="cmp plain">LSTM Autoencoder · ROC-AUC≥0.90</span>
-            <span class="cmp plain">Chronos T5 forecast · MAPE 2%</span>
-            <span class="cmp plain">XGBoost peak optimizer</span>
-            <span class="cmp plain">k-means load clustering</span>
-            <span class="cmp plain">Evidently drift monitor</span>
-            <span class="cmp">ToU cost engine · live tariff feed <span class="dev">(dev: hard-coded ₹12 / ₹5.5 / ₹150)</span></span>
-            <span class="cmp plain">Narrative generator · Gemini → HF → template</span>
-          </div>
+// External systems
+x_meters:{t:'Smart meters (OEM)',tag:'External',st:'ready',w:`Real smart meters from vendors — Schneider, Siemens, Honeywell. Would publish via Modbus or BACnet or direct MQTT with the same message shape as our simulator.`,l:['Modbus RTU','BACnet/IP'],m:`Production ingestion source. Simulator produces the same message shape so swap is clean.`},
+x_bms:{t:'Real BMS (BACnet)',tag:'External',st:'ready',w:`Real Building Management System connection via BACnet-over-IP. Would receive the same shed/schedule commands the Mock BMS does today. HTTP webhook shape maps 1:1 to BACnet writes.`,l:['BACnet/IP','HTTP → BACnet shim'],m:`Mock BMS is the shape-identical substitute for demos.`},
+x_weather:{t:'Weather API',tag:'External',st:'rmap',w:`External weather data (OpenWeatherMap). Would feed temperature and humidity into Chronos as exogenous features for better HVAC forecasts.`,l:['OpenWeatherMap REST'],m:`Future enhancement. Would improve Chronos accuracy significantly.`},
+x_tariff:{t:'Utility tariff feed',tag:'External',st:'rmap',w:`Live tariff rates from the DISCOM. Would replace hard-coded ToU values if the utility shifts rates mid-month.`,l:['DISCOM API'],m:`Current rates hard-coded to Indian commercial standard.`},
+x_entra:{t:'Entra ID / Azure AD',tag:'External',st:'ready',w:`Enterprise single-sign-on via Microsoft Entra ID. Would replace the 3 hard-coded demo accounts with OIDC. Role mapping from AD groups.`,l:['OIDC','OAuth2'],m:`Drops in at production. Same role model, zero code changes to dashboards.`},
 
-          <div class="label-micro">Analytics &amp; AI helpers (new)</div>
-          <div class="components">
-            <span class="cmp plain">comparator · vs-prior-period deltas</span>
-            <span class="cmp plain">severity · Critical / Major / Minor classifier</span>
-            <span class="cmp plain">caption_engine · 3-tier narrative generator</span>
-            <span class="cmp plain">view_recommender · per-view AI routing</span>
-          </div>
+// Tracer (observability line at the bottom of the spring)
+tr_audit:{t:'Observability',tag:'Cross-cutting',st:'live',w:`Every agent step, LLM call, tool invocation and dispatch result is logged. Audit log for human decisions is append-only. Each chat answer shows the tools it called.`,l:['Python logging','JSONL audit log','ready for App Insights'],m:`Trust-and-safety. Everything is traceable from question to answer to action.`},
 
-          <div class="label-micro">Model lifecycle &amp; LLM</div>
-          <div class="components">
-            <span class="cmp">Azure ML Model Registry <span class="dev">(dev: pickled artifacts)</span></span>
-            <span class="cmp">MLflow tracking server <span class="dev">(dev: local MLflow)</span></span>
-            <span class="cmp plain">LLM provider wrapper · 6 backends · one-dropdown swap</span>
-          </div>
-        </div>
-      </div>
+// Bottom row
+b_cicd:{t:'GitHub Actions',tag:'Delivery',st:'live',w:`CI/CD pipeline for every PR. Runs ruff lint, pytest with ≥80% coverage gate, deploys to Azure Functions on green main.`,l:['GitHub Actions','pytest-cov','az CLI'],m:`Safety net that makes 690 tests actually matter.`},
+b_quality:{t:'Quality gates',tag:'Delivery',st:'live',w:`690 unit tests + 55 integration tests across 5 cross-module paths. 100% backend coverage on core modules. 0 failures. Model gates: anomaly F1 = 0.927, LSTM-AE ROC-AUC ≥ 0.90, Chronos MAPE tuning in progress.`,l:['pytest','pytest-cov','ruff'],m:`Quantitative evidence that the system does what it claims.`},
+b_count:{t:"What's deployed",tag:'Summary',st:'live',w:`Two Azure resources live right now: Function App and Storage. Seven more are provisionable-ready in the RG: IoT Hub, VM, ACS, App Insights, Key Vault, Container Instance, Log Analytics. RBAC fully granted.`,l:['az CLI','Bicep'],m:`Mode 1 (Local): 0 Azure services. Mode 2 (Hybrid, current): 2 live. Mode 3 (Full Azure): all 9.`},
+b_trust:{t:'Trust by design',tag:'Governance',st:'live',w:`AI advises, humans decide. Every state-changing action requires an explicit human Approve click. Append-only audit log. Secrets gitignored. LLM wrapper means no provider lock-in. Graceful degradation when credentials missing.`,l:[],m:`More important than any single feature.`}
+};
 
-      <!-- Layer 4 -->
-      <div class="layer">
-        <div class="layer-head">
-          <span class="num">04</span>
-          <span class="title">Triggers · Auto + Human-approved</span>
-          <span class="sub">split pipeline · zero auto-execution of consequential actions</span>
-        </div>
-        <div class="layer-body">
-          <div class="label-micro">Auto-fired (AI alone · notifications only, no state change)</div>
-          <div class="components">
-            <span class="cmp plain">Azure Functions v4 · /api/event · /api/bms/webhook</span>
-            <span class="cmp">ACS email <span class="dev">(dev: Mailpit SMTP or Gmail SMTP · verified live)</span></span>
-            <span class="cmp plain">Twilio SMS</span>
-            <span class="cmp plain">Multi-recipient dispatch · comma-separated list</span>
-            <span class="cmp plain">Weekly digest (Mon 8am / Fri 5pm)</span>
-          </div>
+const $ = id => document.getElementById(id);
+const ic = (n,c) => {
+  const p = {
+   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+   atom:'<ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/><circle cx="12" cy="12" r="1.6"/>',
+   leaf:'<path d="M5 19C5 10 11 5 20 4c0 9-5 15-13 15z"/><path d="M5 19l8-8"/>',
+   spark:'<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>',
+   code:'<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
+   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+   db:'<path d="M4 6c0-2 16-2 16 0v12c0 2-16 2-16 0z"/><path d="M4 12c0 2 16 2 16 0"/>',
+   layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+   key:'<circle cx="8" cy="15" r="3.5"/><path d="M10.5 12.5L20 3M16 7l3 3"/>',
+   plug:'<path d="M9 3v5M15 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v3"/>',
+   chip:'<path d="M6 6h12v12H6zM9 9h6v6H9zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+   branch:'<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-12 2-12 5"/>',
+   check:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+   bulb:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c1 1 1 2 1 3h6c0-1 0-2 1-3a6 6 0 0 0-4-10z"/>',
+   bars:'<path d="M5 20V10M12 20V4M19 20v-8"/>',
+   cube:'<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+   bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+   antenna:'<path d="M5 20h14M8 16c-3-4-3-7 0-10M16 16c3-4 3-7 0-10M12 10v10"/>',
+   eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
+  }[n];
+  return '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg></span>';
+};
+function lab(n){ return typeof n.t==='object' ? n.t[S.ap] : n.t; }
+function off(n){ return n.used && !n.used.includes(S.ap); }
+function cls(id, base){
+  const n = I[id], mf = MF.indexOf(id)>=0;
+  return base+(off(n)?' off':'')+(S.sel===id?' sel':'')+(mf?' mf':'')+(MFSOFT.includes(id)?' soft':'');
+}
+function chip(id){ const k = MF.indexOf(id); return k>=0 ? '<i class="mfn">'+(k+1)+'</i>' : ''; }
+const pill = id => '<button class="'+cls(id,'pill')+'" data-id="'+id+'">'+chip(id)+lab(I[id])+'</button>';
+const li = id => '<button class="'+cls(id,'li')+'" data-id="'+id+'">'+lab(I[id])+'</button>';
+const gi = (id,n) => '<button class="'+cls(id,'gi')+'" data-id="'+id+'"><i>'+n+'</i>'+lab(I[id])+'</button>';
+const head = (id, icon, sub) => '<button class="'+cls(id,'hrow')+'" data-id="'+id+'">'+icon+'<span><b>'+lab(I[id])+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</span></button>';
+const rrow = (id, icon, sub) => '<button class="'+cls(id,'rrow')+'" data-id="'+id+'">'+chip(id)+icon+'<span><b>'+lab(I[id])+'</b><small>'+sub+'</small></span></button>';
+const person = (id, color, bg, sub) => '<button class="'+cls(id,'person')+'" data-id="'+id+'"><span class="av" style="background:'+bg+'">'+ic('user',color)+'</span><b>'+lab(I[id])+'</b><span>'+sub+'</span></button>';
+const arrow = (txt, dash) => '<div class="slot"><span class="tx">'+(txt||'&nbsp;')+'</span><div class="ar'+(dash?' dash':'')+'"></div></div>';
 
-          <div class="label-micro">Human-approved (ActionHandler · state-changing)</div>
-          <div class="components">
-            <span class="cmp">BMS BACnet-over-IP <span class="dev">(dev: HTTP webhook stub)</span></span>
-            <span class="cmp roadmap">ServiceNow / Jira ticket creation</span>
-            <span class="cmp plain">Load shed · schedule shift · threshold override</span>
-            <span class="cmp plain">Append-only audit log · .streamlit/audit_log.jsonl</span>
-          </div>
-        </div>
-      </div>
+function statusCounts(){
+  if (S.ap===1) return '0 Azure services';
+  if (S.ap===2) return '2 Azure services';
+  return '9 Azure services';
+}
 
-      <!-- Layer 5 -->
-      <div class="layer">
-        <div class="layer-head">
-          <span class="num">05</span>
-          <span class="title">Dashboards &amp; UX</span>
-          <span class="sub">10 Streamlit views · AI advisor threaded through every page · Grafana · Power BI</span>
-        </div>
-        <div class="layer-body">
-          <div class="label-micro">Daily workflow &nbsp; (NEW)</div>
-          <div class="components">
-            <span class="cmp">Morning Briefing · 3 AI recommendations · Approve / Snooze / Dismiss</span>
-            <span class="cmp">Audit Log · admin-only · AI SUGGESTED → HUMAN DECIDED → ACTION FIRED</span>
-          </div>
-          <div class="label-micro">Analytics &amp; operations &nbsp; (per-view AI recommendation strip on each)</div>
-          <div class="components">
-            <span class="cmp plain">Real-Time Consumption</span>
-            <span class="cmp plain">Demand Pattern</span>
-            <span class="cmp plain">Cost Analysis</span>
-            <span class="cmp plain">AI Optimization · forensic drill-down modal · severity ranking</span>
-            <span class="cmp plain">Cross-Facility Benchmark</span>
-            <span class="cmp plain">AI Chat Agent · suggested questions</span>
-            <span class="cmp plain">Full Agent Sweep</span>
-            <span class="cmp plain">Alert Settings · LLM + SMTP + Twilio + BMS config</span>
-          </div>
-          <div class="label-micro">Delivery &amp; BI</div>
-          <div class="components">
-            <span class="cmp">Streamlit on Azure App Service <span class="dev">(dev: streamlit run localhost:8501)</span></span>
-            <span class="cmp">Grafana Cloud <span class="dev">(dev: Grafana OSS 11.1 container)</span></span>
-            <span class="cmp">Power BI Service <span class="dev">(dev: .pbix file)</span></span>
-            <span class="cmp roadmap">FastAPI backend · separates UI from compute</span>
-          </div>
-        </div>
-      </div>
+function render(){
+  const g = '#2E8B67';
+  const slide = $('slide');
+  slide.className = S.mf ? 'mf-on' : '';
+  slide.innerHTML =
+  '<div class="hd"><div><div class="eyebrow">SYSTEM ARCHITECTURE</div><h1>WattWise AI · agentic energy intelligence</h1></div>'+
+   '<div class="ctl"><div class="seg" role="group" aria-label="Deployment mode">'+[1,2,3].map(i=>'<button data-ap="'+i+'" aria-pressed="'+(S.ap===i)+'">'+AP[i].s+'</button>').join('')+'</div>'+
+   '<button class="tgl" id="mfBtn" aria-pressed="'+S.mf+'">Show data flow</button></div></div>'+
+  '<div id="mfline">Data journey: 1 Smart meters, 2 MQTT broker, 3 ClickHouse DB, 4 Agents read + recommend, 5 Morning Briefing to operator, 6 ActionHandler on Approve, 7 BMS acts on building. Audit log records every step.</div>'+
+  '<div class="main">'+
+   '<div class="col users"><div class="card"><div class="lab">USERS</div>'+
+      person('u_admin','#4338CA','#ECEBFD','Full access + audit log')+
+      person('u_operator','#2E8B67','#DDF1E8','Approves daily actions')+
+      person('u_viewer','#B45309','#FDF0DC','Read-only stakeholder')+'</div></div>'+
+   '<div class="gapc">'+arrow('login')+'</div>'+
+   '<div class="col"><div class="card fill"><div class="lab">DASHBOARD UI</div>'+head('v_streamlit',ic('bars','#1AA3C7'),'Streamlit on localhost:8501')+
+      '<div class="pstack">'+[pill('v_briefing'),pill('v_realtime'),pill('v_demand'),pill('v_cost'),pill('v_aiopt'),pill('v_bench'),pill('v_chat'),pill('v_sweep'),pill('v_audit'),pill('v_settings')].join('')+'</div>'+
+      '<div class="note">10 views · AI recommendation strip threaded through each one</div></div></div>'+
+   '<div class="gapc">'+arrow('HTTPS')+'</div>'+
+   '<div class="spring">'+
+     '<div class="top">'+ic('leaf',g)+'<b>WattWise Core</b><small>Python 3.11, modular monolith, 690 tests, 100% backend coverage</small></div>'+
+     '<div class="inner">'+
+       '<div class="card"><div class="lab">PLATFORM &amp; API</div>'+head('a_llmprov',ic('shield',g),'LLM wrapper + auth')+
+         [li('a_auth'),li('a_roles'),li('a_errors'),li('a_logging')].join('')+'</div>'+
+       '<div class="stack">'+
+         '<div class="card"><div class="lab">AI / ML CORE</div><div class="hrow" style="cursor:default">'+ic('spark','#C2410C')+'<b>Agents + ML models</b></div>'+
+           '<div class="pg">'+['ag_anom','ag_forecast','ag_cost','ag_optim','ag_brief','ag_forensic','ag_orch','ag_chat'].map(pill).join('')+'</div></div>'+
+         '<div class="card"><div class="lab">DETERMINISTIC ML · CALLED AS TOOLS</div><div class="hrow" style="cursor:default">'+ic('cube','#4338CA')+'<b>Models + cost engine</b></div>'+
+           '<div class="pg">'+['ml_pyod','ml_lstm','ml_chronos','ml_xgb','ml_kmeans','ml_evid','ml_cost'].map(pill).join('')+'</div>'+
+           '<div class="note">Each agent calls these as tools in its ReAct loop</div></div>'+
+         '<div class="card"><div class="lab">HUMAN-APPROVED PIPELINE</div><div class="hrow" style="cursor:default">'+ic('check','#2E8B67')+'<b>AI advises, human decides</b></div>'+
+           '<div class="pg">'+['t_actionh','t_dispatch','t_triggerh','t_audit'].map(pill).join('')+'</div>'+
+           '<div class="note">State-changing actions require an explicit Approve click</div></div>'+
+       '</div>'+
+       '<div class="stack">'+
+         '<div class="gate"><div class="lab">LLM PROVIDERS · ONE-DROPDOWN SWAP</div>'+
+           gi('g_groq',1)+gi('g_gemini',2)+gi('g_ollama',3)+gi('g_openai',4)+gi('g_claude',5)+gi('g_hf',6)+
+           '<div class="note" style="margin-top:4px">Qwen 3.8-27b active · 6 backends behind one wrapper</div></div>'+
+         '<div class="card"><div class="lab">IOT INGESTION</div><div class="hrow" style="cursor:default">'+ic('antenna','#0F766E')+'<b>Sensors in, DB out</b></div>'+
+           '<div class="pg">'+['p_sim','p_mqtt','p_iothub','p_schema','p_pipeline','p_eh'].map(pill).join('')+'</div>'+
+           '<div class="note">3 facilities × 6 device types × 3 domains = 54 readings per 15-min tick</div></div>'+
+       '</div>'+
+     '</div>'+
+     '<button class="'+cls('tr_audit','tracer')+'" data-id="tr_audit">'+ic('eye','#16323A').replace('class="ic"','class="ic sm"')+'<span><b>Observability:</b> every agent step, LLM call, tool invocation and BMS dispatch is logged. Audit log is append-only JSONL · ready for Azure Monitor + App Insights (both providers registered)</span></button>'+
+   '</div>'+
+   '<div class="gapc"><div class="slot"><span class="tx">BMS cmd</span><div class="ar"></div></div><div class="slot"><span class="tx">reads</span><div class="ar dash"></div></div><div class="slot"><span class="tx">alerts</span><div class="ar"></div></div></div>'+
+   '<div class="col right">'+
+     '<div class="card"><div class="lab">HELPER SERVICES</div>'+
+        rrow('h_mockbms',ic('plug','#2E8B67').replace('class="ic"','class="ic sm"'),'localhost:9100 · closes the loop')+
+        rrow('h_gmail',ic('bolt','#C2410C').replace('class="ic"','class="ic sm"'),'Port 465 SSL · live-verified')+
+        rrow('h_fnapp',ic('leaf','#2E8B67').replace('class="ic"','class="ic sm"'),'Azure · live · 2 HTTP triggers')+
+        rrow('h_acs',ic('globe','#4338CA').replace('class="ic"','class="ic sm"'),'Managed email · ready')+
+        rrow('h_twilio',ic('antenna','#7C3AED').replace('class="ic"','class="ic sm"'),'SMS · optional')+'</div>'+
+     '<div class="card"><div class="lab">DATA &amp; SECRETS</div>'+
+        rrow('d_clickhouse',ic('db','#2563EB').replace('class="ic"','class="ic sm"'),'Time-series store')+
+        rrow('d_duckdb',ic('cube','#0F766E').replace('class="ic"','class="ic sm"'),'Ad-hoc analytics')+
+        rrow('d_blob',ic('cube','#2E8B67').replace('class="ic"','class="ic sm"'),'Azure · live · Hot/LRS')+
+        rrow('d_settings',ic('key','#B45309').replace('class="ic"','class="ic sm"'),'Local JSON · gitignored')+
+        rrow('d_vault',ic('shield','#4338CA').replace('class="ic"','class="ic sm"'),'Azure · ready')+
+        rrow('d_insights',ic('eye','#4338CA').replace('class="ic"','class="ic sm"'),'App Insights · ready')+'</div>'+
+     '<div class="card"><div class="lab">EXTERNAL SYSTEMS</div>'+
+        rrow('x_meters',ic('chip','#B45309').replace('class="ic"','class="ic sm"'),'OEM smart meters')+
+        rrow('x_bms',ic('plug','#B45309').replace('class="ic"','class="ic sm"'),'BACnet · real BMS')+
+        rrow('x_entra',ic('shield','#4338CA').replace('class="ic"','class="ic sm"'),'Entra ID SSO')+
+        rrow('x_weather',ic('globe','#5E727A').replace('class="ic"','class="ic sm"'),'Weather · roadmap')+
+        rrow('x_tariff',ic('bolt','#5E727A').replace('class="ic"','class="ic sm"'),'Tariff feed · roadmap')+'</div>'+
+   '</div>'+
+  '</div>'+
+  '<div class="bottom">'+
+    '<button class="'+cls('b_cicd','bcard')+'" data-id="b_cicd">'+ic('branch','#2563EB')+'<span><b>CI/CD · GitHub Actions</b><span class="d">ruff lint + pytest with coverage gate, deploys to Azure Functions on green main.</span></span></button>'+
+    '<button class="'+cls('b_quality','bcard')+'" data-id="b_quality">'+ic('check','#2E8B67')+'<span><b>Quality gates</b><span class="d">690 unit + 55 integration tests · 100% backend coverage · 0 failures.</span></span></button>'+
+    '<button class="'+cls('b_count','bcard')+'" data-id="b_count">'+ic('bars','#7C3AED')+'<span><b>Services deployed: '+statusCounts()+'</b><span class="d">2 live in Azure RG, 7 more provisionable (RBAC granted + providers registered).</span></span></button>'+
+    '<button class="'+cls('b_trust','bcard dark')+'" data-id="b_trust">'+ic('bulb','#F5D547')+'<span><b>Trust by design</b><span class="d">AI advises, humans decide. Every state change requires an Approve click. Append-only audit log.</span></span></button>'+
+  '</div>';
+  fit();
+  if(S.sel) showDrawer(); else document.body.classList.remove('drawer-open');
+}
 
-      <!-- Tracer -->
-      <div class="tracer">
-        <span class="ico">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        </span>
-        <span><strong>Observability:</strong> every agent step, LLM call, tool invocation and dispatch result is logged. The chat UI surfaces this as "how we got here" — prod ships to Azure Monitor / Application Insights <em>(dev: Python logging + stdout)</em></span>
-      </div>
-    </div>
+function statusLabel(st){
+  return ({live:'Live now',ready:'Ready to create',local:'Local demo stack',rmap:'Roadmap · future'})[st] || st;
+}
 
-    <!-- RIGHT: AI models, data, secrets, external -->
-    <div>
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </span>
-          <span class="title">LLM Models</span>
-          <span class="count">swappable</span>
-        </div>
-        <div style="font-size:10.5px; color:var(--ink-dim); margin-bottom:8px;">Provider wrapper · one env var swap · <strong style="color:var(--ink);">6 backends</strong></div>
-        <div class="model-swap">
-          <div class="model-row"><span class="mn">Gemini Flash <span style="color:var(--ink-dim);font-weight:400;">(rolling alias)</span></span><span class="tag free">free</span></div>
-          <div class="model-row"><span class="mn">Groq · Llama 3.3</span><span class="tag free">free · fast</span></div>
-          <div class="model-row"><span class="mn">Ollama local</span><span class="tag local">local</span></div>
-          <div class="model-row"><span class="mn">OpenAI GPT-4o</span><span class="tag paid">paid</span></div>
-          <div class="model-row"><span class="mn">Anthropic Claude</span><span class="tag paid">paid</span></div>
-          <div class="model-row"><span class="mn">HuggingFace</span><span class="tag free">free</span></div>
-        </div>
-      </div>
+function showDrawer(){
+  const n = I[S.sel], d = $('drawer');
+  const title = lab(n);
+  const mfi = MF.indexOf(S.sel);
+  let h = '<div class="dh"><div><span class="dtag">'+n.tag+'</span>'+
+    (n.st?'<span class="dtag '+n.st+'">'+statusLabel(n.st)+'</span>':'')+
+    (n.used?'<span class="dtag">Used in mode '+n.used.join(', ')+'</span>':'')+
+    (mfi>=0?'<span class="dtag m">Data flow step '+(mfi+1)+' of 7</span>':'')+
+    '<h2>'+title+'</h2></div><button id="close">Close</button></div><div class="dgrid">';
+  h += '<div><h3>What it is / does</h3><p>'+n.w+'</p></div>';
+  if(n.l && n.l.length) h += '<div><h3>Tech &amp; libraries</h3><ul class="lib">'+n.l.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>';
+  h += '<div><h3>Role in WattWise AI</h3><div class="metab">'+n.m+'</div></div></div>';
+  d.innerHTML = h;
+  document.body.classList.add('drawer-open');
+  const c = $('close'); if(c) c.addEventListener('click', ()=>{ S.sel=null; render(); });
+}
 
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </span>
-          <span class="title">Secrets</span>
-        </div>
-        <div class="components" style="margin-top:10px;">
-          <span class="cmp">Azure Key Vault <span class="dev">(dev: .streamlit/alert_settings.json · gitignored)</span></span>
-        </div>
-      </div>
+function fit(){
+  const stage = $('stage'), slide = $('slide'), sizer = $('sizer');
+  const avail = stage.clientWidth - 24;
+  if(avail <= 0) return;
+  let s = Math.min(1.3, avail/1340);
+  if(avail < 700) s = Math.max(s, 0.5);
+  slide.style.transform = 'scale('+s+')';
+  sizer.style.width = (1340*s)+'px';
+  sizer.style.height = (slide.offsetHeight*s)+'px';
+}
 
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          </span>
-          <span class="title">Storage</span>
-        </div>
-        <div class="components" style="margin-top:10px;">
-          <span class="cmp">Azure Blob · ML artefacts <span class="dev">(dev: Azurite)</span></span>
-          <span class="cmp roadmap">Azure SQL · metadata</span>
-        </div>
-      </div>
-
-      <div class="col-section">
-        <div class="section-head">
-          <span class="ico">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </span>
-          <span class="title">External sources</span>
-        </div>
-        <div class="components" style="margin-top:10px;">
-          <span class="cmp">Smart-meter OEM gateways <span class="dev">(dev: simulator)</span></span>
-          <span class="cmp roadmap">Weather API · OpenWeatherMap</span>
-          <span class="cmp roadmap">Utility tariff feed</span>
-          <span class="cmp">BMS via BACnet <span class="dev">(dev: HTTP webhook stub)</span></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bottom row -->
-  <div class="bottom-row">
-    <div class="bottom-card">
-      <div class="bh">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
-        <span class="title">CI / CD</span>
-      </div>
-      <div class="copy"><strong>GitHub Actions</strong> · ruff lint · pytest with ≥80 % coverage gate · <em>(prod: Azure DevOps Pipeline with blue-green deploy; current: GitHub Actions deploy to Functions on green)</em></div>
-    </div>
-    <div class="bottom-card">
-      <div class="bh">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-        <span class="title">Quality gates</span>
-      </div>
-      <div class="copy"><strong>626 tests · 100 % backend coverage · 0 failures</strong> · every model gate exceeded (anomaly F1 0.927 vs ≥ 0.88, forecast MAPE ~2 % vs ≤ 8 %, LSTM-AE ROC-AUC ≥ 0.90)</div>
-    </div>
-    <div class="bottom-card">
-      <div class="bh">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-        <span class="title">BI / Reporting</span>
-      </div>
-      <div class="copy"><strong>Power BI Service</strong> · <strong>Grafana Cloud</strong> real-time ops <em>(dev: local Grafana OSS + .pbix file)</em> · dashboard-based ESG snapshot — <span style="color:var(--amber); font-weight:600;">formal BRSR export: roadmap</span></div>
-    </div>
-    <div class="bottom-card hero">
-      <div class="bh">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-        <span class="title">Trust by design</span>
-      </div>
-      <div class="copy">HTTPS · <strong>Entra ID auth</strong> + Key Vault + VNet · secrets isolated from source tree · degrades gracefully when creds missing · synthetic data in dev <em>(dev: hard-coded accounts + local JSON secrets gitignored; human approval UI = roadmap)</em></div>
-    </div>
-  </div>
-
-  <!-- Meta footer -->
-  <div class="meta">
-    <div>WattWise AI · 5-layer agentic energy intelligence · Python 3.11 · Streamlit · ClickHouse · Azure</div>
-    <div class="m-right">v1.2 · 2026-10-10 · production target with local demo substitutes · AI advisor / human decision-maker pattern</div>
-  </div>
-</div>
+$('slide').addEventListener('click', e=>{
+  const a = e.target.closest('[data-ap]');
+  if(a){ S.ap = +a.dataset.ap; render(); return; }
+  if(e.target.closest('#mfBtn')){ S.mf = !S.mf; render(); return; }
+  const b = e.target.closest('[data-id]');
+  if(b){ S.sel = b.dataset.id; render(); }
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && S.sel){ S.sel=null; render(); } });
+window.addEventListener('resize', fit);
+if(window.ResizeObserver) new ResizeObserver(fit).observe($('stage'));
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+render();
+</script>
 </body>
 </html>

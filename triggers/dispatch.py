@@ -106,12 +106,59 @@ def send_alert_sms(body: str, to_number: str | None = None) -> dict:
         return {"channel": "twilio", "sent": False, "reason": str(e)}
 
 
-def dispatch_bms_command(facility_id: str, device_id: str, action: str) -> dict:
-    """Mock BMS webhook (blueprint §Layer 4: "mock REST webhook, logs the
-    action"). No real building-management system is wired up — this records
-    the load-shed decision so the closed-loop path is demonstrable end-to-end
-    without needing a real BMS integration in scope."""
-    log.warning(
-        "[MOCK BMS COMMAND] facility=%s device=%s action=%s", facility_id, device_id, action
-    )
-    return {"facility_id": facility_id, "device_id": device_id, "action": action, "status": "logged"}
+def dispatch_bms_command(facility_id: str, device_id: str, action: str, **extra) -> dict:
+    """Dispatch a load-management command to the Building Management System.
+
+    If BMS_WEBHOOK_URL env var is set (e.g. http://localhost:9100/command for the
+    bundled Mock BMS simulator), fires a real HTTP POST and returns the ack.
+    If not set — logs the command and returns a 'logged' status so the closed loop
+    is still demonstrable without a real BMS gateway.
+
+    extra: any additional keys (loads, shed_kw, target_hours, action_type, ...)
+    get merged into the POST payload.
+    """
+    import os
+    url = (os.getenv("BMS_WEBHOOK_URL") or "").strip()
+    payload = {
+        "facility": facility_id,
+        "facility_id": facility_id,
+        "device_id": device_id,
+        "action": action,
+        "action_type": extra.pop("action_type", action),
+        **extra,
+    }
+
+    if not url:
+        log.warning(
+            "[MOCK BMS COMMAND] facility=%s device=%s action=%s (no BMS_WEBHOOK_URL set)",
+            facility_id, device_id, action,
+        )
+        return {"facility_id": facility_id, "device_id": device_id,
+                "action": action, "status": "logged"}
+
+    try:
+        import requests
+        token = (os.getenv("BMS_AUTH_TOKEN") or "").strip()
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        r = requests.post(url, json=payload, headers=headers, timeout=10)
+        if r.status_code < 300:
+            log.info("[BMS] POST %s -> %s · facility=%s action=%s",
+                     url, r.status_code, facility_id, action)
+            try:
+                ack = r.json()
+            except Exception:
+                ack = {"ack": r.text[:200]}
+            return {"facility_id": facility_id, "device_id": device_id,
+                    "action": action, "status": "sent",
+                    "http_status": r.status_code, "endpoint": url, "ack": ack}
+        log.warning("[BMS] POST %s -> %s (non-2xx)", url, r.status_code)
+        return {"facility_id": facility_id, "device_id": device_id,
+                "action": action, "status": "http_error",
+                "http_status": r.status_code, "endpoint": url}
+    except Exception as e:
+        log.warning("[BMS] POST %s failed: %s", url, e)
+        return {"facility_id": facility_id, "device_id": device_id,
+                "action": action, "status": "failed", "error": str(e),
+                "endpoint": url}

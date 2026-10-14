@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WattWise AI · ML models &amp; AI agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  --page:#EEF1F3;--card:#FFFFFF;--ink:#16323A;--muted:#5E727A;--line:#DCE3E7;--pill:#F0F3F5;
+  --green:#2E8B67;--green-bg:#F0F8F4;--green-line:#8CCBB0;
+  --gold:#C9B814;--gold-bg:#FFFDE8;--gold-line:#E6DA55;
+  --indigo:#4338CA;--indigo-bg:#ECEBFD;--amber:#B45309;--amber-bg:#FDF0DC;
+  --rose:#E85D4F;--rose-bg:#FBECEA;
+  --dark:#0F3D2E;--shadow:0 1px 3px rgba(20,40,50,.10);
+  --font:'DM Sans','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#0D1417;--card:#162026;--ink:#E5EEF1;--muted:#93A6AE;--line:#2A3A42;--pill:#1E2B32;
+    --green:#5FD0A3;--green-bg:#10241D;--green-line:#2F6B53;
+    --gold:#E8D84A;--gold-bg:#27230B;--gold-line:#6F6616;
+    --indigo:#B2B0FF;--indigo-bg:#25244F;--amber:#F2B25C;--amber-bg:#3A2B12;
+    --rose:#FF8B7E;--rose-bg:#381614;
+    --shadow:0 1px 3px rgba(0,0,0,.5);
+  }
+}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.4;padding-bottom:24px}
+body.drawer-open{padding-bottom:50vh}
+button{font:inherit;color:inherit;text-align:left}
+#stage{overflow-x:auto;padding:16px 20px 0}
+.page{max-width:1420px;margin:0 auto}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:500;color:var(--muted)}
+h1{margin:4px 0 0;font-size:28px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12px;margin-bottom:16px;color:var(--muted)}
+.legend b{color:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.main{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.section{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px}
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.section-head .ico{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+.section-head h2{font-size:16px;margin:0;font-weight:700;letter-spacing:-.01em}
+.section-head small{display:block;color:var(--muted);font-size:11px;font-weight:400;margin-top:2px}
+.group-label{font-size:10.5px;letter-spacing:.12em;font-weight:600;color:var(--muted);text-transform:uppercase;margin:12px 0 8px;padding-left:4px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:all 150ms;position:relative;text-align:left;font:inherit;color:inherit;width:100%}
+.m-card:hover{border-color:var(--ink);transform:translateY(-1px);box-shadow:0 4px 10px rgba(14,31,31,.08)}
+.m-card.sel{outline:2px solid var(--ink);outline-offset:1px}
+.m-card .nm{font-size:13px;font-weight:700;line-height:1.2;letter-spacing:-.01em}
+.m-card .sim{font-size:11.5px;color:var(--muted);font-style:italic;line-height:1.25}
+.m-card .metrics{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.m-card .metric{font-size:10px;font-weight:600;background:var(--pill);color:var(--muted);padding:2px 7px;border-radius:999px;font-family:'JetBrains Mono',monospace}
+.m-card .metric.good{background:var(--green-bg);color:var(--green)}
+.m-card .metric.live{background:var(--green-bg);color:var(--green)}
+.m-card .metric.ready{background:var(--gold-bg);color:#8a6f0b}
+.m-card .metric.active{background:var(--indigo-bg);color:var(--indigo)}
+.m-card .metric.rmap{background:var(--amber-bg);color:var(--amber)}
+.a-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 150ms;position:relative;text-align:left;font:inherit;color:inherit;width:100%;display:flex;align-items:flex-start;gap:10px}
+.a-card:hover{border-color:var(--ink);transform:translateY(-1px);box-shadow:0 4px 10px rgba(14,31,31,.08)}
+.a-card.sel{outline:2px solid var(--ink);outline-offset:1px}
+.a-card .av{width:36px;height:36px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;letter-spacing:-.5px}
+.a-card .info{flex:1;min-width:0}
+.a-card .nm{font-size:13px;font-weight:700;line-height:1.2}
+.a-card .role{font-size:11px;color:var(--muted);line-height:1.3;margin-top:2px}
+.a-card .tag{font-size:9.5px;font-weight:600;background:var(--pill);color:var(--muted);padding:2px 7px;border-radius:999px;margin-top:5px;display:inline-block;letter-spacing:.04em;text-transform:uppercase}
+.a-grid{display:flex;flex-direction:column;gap:6px}
+.note-foot{text-align:center;color:var(--muted);font-size:11px;margin-top:14px}
+#drawer{position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;background:var(--card);border-top:2px solid var(--ink);box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:16px 24px 28px;font-size:14px;line-height:1.55;display:none;z-index:10}
+body.drawer-open #drawer{display:block}
+#drawer .dh{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:12px}
+#drawer .dh .ic{width:46px;height:46px;flex:0 0 auto;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;letter-spacing:-.5px}
+#drawer .dh .titles{flex:1;min-width:0}
+#drawer h2{margin:0;font-size:22px;line-height:1.2;letter-spacing:-.02em}
+#drawer .dh .simtitle{color:var(--muted);font-size:13px;font-style:italic;margin-top:2px}
+.dtag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:10px;background:var(--pill);color:var(--muted);margin-right:6px;margin-bottom:4px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.dtag.m{background:var(--indigo-bg);color:var(--indigo)}
+.dtag.live{background:var(--green-bg);color:var(--green)}
+.dtag.ready{background:var(--gold-bg);color:#8a6f0b}
+.dtag.rmap{background:var(--amber-bg);color:var(--amber)}
+.dtag.tech{background:var(--rose-bg);color:var(--rose)}
+#close{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500;flex:0 0 auto}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:8px}
+#drawer h3{margin:0 0 6px;font-size:12px;letter-spacing:.08em;font-weight:600;color:var(--muted);text-transform:uppercase}
+#drawer .box{background:var(--pill);border-radius:8px;padding:10px 12px;line-height:1.55}
+#drawer .box.simple{background:var(--green-bg);border-left:3px solid var(--green);color:var(--ink)}
+#drawer .box.tech{background:var(--indigo-bg);border-left:3px solid var(--indigo);font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink)}
+#drawer .box.where{background:var(--gold-bg);border-left:3px solid var(--gold)}
+#drawer .box.flow{background:var(--rose-bg);border-left:3px solid var(--rose)}
+#drawer .box strong{color:var(--ink);font-weight:700}
+#drawer .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+#drawer .kv dt{color:var(--muted);font-weight:600}
+#drawer .kv dd{color:var(--ink);margin:0;font-family:'JetBrains Mono',monospace;font-size:12px}
+.flowline{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:1.5;margin:4px 0}
+.flowline .step{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-weight:600;color:var(--ink)}
+.flowline .arr{color:var(--muted);font-weight:700}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="page">
+    <div class="hd">
+      <div>
+        <div class="eyebrow">AI &amp; ML EXPLORER</div>
+        <h1>How WattWise AI thinks</h1>
+        <div class="sub">Every ML model and every AI agent, explained in plain English and technical terms. Click any card for the full breakdown.</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="chip"><span class="dot" style="background:var(--green)"></span><b>Live now</b> — actively running in the demo</span>
+      <span class="chip"><span class="dot" style="background:var(--gold)"></span><b>Available</b> — ready, can swap in</span>
+      <span class="chip"><span class="dot" style="background:var(--amber)"></span><b>Roadmap</b> — Phase 2</span>
+      <span style="margin-left:auto;color:var(--muted);font-size:11px">Press <kbd style="background:var(--pill);border:1px solid var(--line);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10.5px">Esc</kbd> to close drawer</span>
+    </div>
+    <div class="main">
+      <!-- LEFT: ML Models -->
+      <div class="section">
+        <div class="section-head">
+          <span class="ico" style="background:var(--indigo-bg);color:var(--indigo)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+          </span>
+          <div>
+            <h2>ML models</h2>
+            <small>The deterministic math — fixed inputs produce fixed outputs</small>
+          </div>
+        </div>
+        <div class="group-label">Anomaly detection — spot unusual spikes or dips</div>
+        <div class="cards" id="ml-anomaly"></div>
+        <div class="group-label">Forecasting — predict tomorrow's load</div>
+        <div class="cards" id="ml-forecast"></div>
+        <div class="group-label">Optimization — rank what to shed, cluster facilities</div>
+        <div class="cards" id="ml-opt"></div>
+        <div class="group-label">Trust &amp; billing — drift monitor + ToU cost engine</div>
+        <div class="cards" id="ml-trust"></div>
+      </div>
+      <!-- RIGHT: AI Agents -->
+      <div class="section">
+        <div class="section-head">
+          <span class="ico" style="background:var(--green-bg);color:var(--green)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+          </span>
+          <div>
+            <h2>AI agents</h2>
+            <small>The thinking layer — LLMs that call ML models as tools</small>
+          </div>
+        </div>
+        <div class="group-label">4 specialists — each owns one domain</div>
+        <div class="a-grid" id="ag-specialists"></div>
+        <div class="group-label">4 meta-agents — coordinate specialists for complex flows</div>
+        <div class="a-grid" id="ag-meta"></div>
+        <div class="group-label">LLM backbone — one wrapper, 6 interchangeable brains</div>
+        <div class="cards" id="ag-llm"></div>
+      </div>
+    </div>
+    <div class="note-foot">Companion to <a href="ARCHITECTURE.html" style="color:var(--ink)">ARCHITECTURE.html</a> — this page zooms into Layer 3 (AI/ML Core). Best viewed on a wide screen.</div>
+  </div>
+</div>
+<div id="drawer" role="region" aria-label="Model details" aria-live="polite"></div>
+
+<script>
+// Shared color accents per category
+const AC = {
+  anom: '#4338CA', fcast: '#2E8B67', opt: '#C2410C', trust: '#0B8FA3',
+  spec: '#2E8B67', meta: '#4338CA', llm: '#C2410C'
+};
+
+// -------------------- ML MODELS --------------------
+const ML = {
+  // Anomaly detection
+  pyod: {
+    cat:'anom', nm:'PyOD Ensemble', sim:'The "something is wrong" detector',
+    group:'ml-anomaly', status:'live',
+    metrics:[{t:'F1 = 0.927', k:'good'}, {t:'RFP target 0.88', k:''}],
+    simple:`<p>Watches every 15-minute reading and raises its hand when something looks weird. Like a security guard who's seen the building's normal routine for 30 days and now notices "this spike at 3 AM shouldn't be happening."</p>`,
+    tech:`IsolationForest + COPOD + ECOD run as a voting ensemble over a 30-day sliding window. Each algorithm scores every reading 0-1 for "how unusual". Majority vote decides anomaly / normal. Trained unsupervised — no labels needed.`,
+    io:{inputs:'15-min demand time-series (kW)',outputs:'Boolean flag per reading + anomaly score (0-1) + top-K ranked anomalies'},
+    where:`Powers <strong>AnomalyAgent</strong>, surfaces in <strong>AI Optimization → Anomaly Detection</strong> tab, and feeds every <strong>Morning Briefing</strong> card tagged "anomaly". Each red X you see on the dashboard chart is a PyOD call.`,
+    files:'ml/anomaly_detection.py · 310 statements · 100% coverage'
+  },
+  lstmae: {
+    cat:'anom', nm:'LSTM Autoencoder', sim:'The "pattern-shape" detector',
+    group:'ml-anomaly', status:'live',
+    metrics:[{t:'ROC-AUC ≥ 0.90', k:'good'}, {t:'RFP gate met', k:''}],
+    simple:`<p>Learns what a normal day looks like for each facility, then flags anything shaped differently. PyOD catches tall spikes; LSTM-AE catches subtle rhythm problems — like HVAC running at 2 AM when nobody's there.</p>`,
+    tech:`Recurrent neural net (encoder-decoder architecture) trained on 30 days of normal demand sequences. Minimises reconstruction error. At inference, high reconstruction error = anomaly. Catches time-shaped anomalies that point-based detectors miss.`,
+    io:{inputs:'Sequence of 96 fifteen-min demand readings (24 hrs)',outputs:'Reconstruction error score per sequence'},
+    where:`Complements PyOD in <strong>AnomalyAgent</strong>. Used especially for after-hours and weekend anomaly detection where the shape of the curve matters more than the peak value.`,
+    files:'ml/lstm_autoencoder.py · trained on synthetic data'
+  },
+  // Forecasting
+  chronos: {
+    cat:'fcast', nm:'Chronos T5', sim:'The "tomorrow\'s load" crystal ball',
+    group:'ml-forecast', status:'live',
+    metrics:[{t:'RFP MAPE ≤ 8%', k:''}, {t:'tuning in progress', k:'ready'}],
+    simple:`<p>Looks at the last few days and predicts the next 24 hours of power demand, hour by hour. Lets the facility manager pre-cool a building before a predicted peak hits — spend ₹500 to save ₹43,000 in demand charges.</p>`,
+    tech:`Amazon's open-weight time-series foundation model (T5 transformer architecture). Zero-shot — no per-site retraining needed. Trained on millions of time-series from different industries. Returns probabilistic forecasts with confidence intervals.`,
+    io:{inputs:'Recent demand history (last 96-192 points)',outputs:'Hour-by-hour forecast + upper/lower confidence bounds + model_used tag'},
+    where:`Powers <strong>ForecastAgent</strong>, shown in <strong>AI Optimization → Demand Forecast</strong> tab (dashed line + purple confidence band). Each briefing card tagged "forecast" calls this.`,
+    files:'ml/forecasting.py · chronos-forecasting + statistical fallback'
+  },
+  // Optimization
+  xgb: {
+    cat:'opt', nm:'XGBoost Load Ranker', sim:'The "what to turn off" decider',
+    group:'ml-opt', status:'live',
+    metrics:[{t:'500 training events', k:''}, {t:'tree-based', k:''}],
+    simple:`<p>When demand is close to the pain line, this picks WHICH loads are safest to shed. Server rooms score zero (never shed). EV chargers score high (safe to defer 30 minutes). Protects critical equipment automatically.</p>`,
+    tech:`Gradient-boosted decision trees. Features: criticality tag, time-of-day, occupancy, restart cost, deferability score. Trained on synthetic labeled events. Returns ranked list of ControllableLoad objects with predicted shed-safety.`,
+    io:{inputs:'List of ControllableLoad objects + current demand + target reduction',outputs:'Ranked shortlist with kW savings per load'},
+    where:`Powers <strong>OptimizerAgent</strong>, shown in <strong>AI Optimization → Peak Shaving</strong> tab. The Approve button next to each ranked load dispatches to Mock BMS.`,
+    files:'ml/peak_optimizer.py · 100% coverage'
+  },
+  kmeans: {
+    cat:'opt', nm:'k-means clustering', sim:'The "peer comparison" grouper',
+    group:'ml-opt', status:'live',
+    metrics:[{t:'3 facilities', k:''}, {t:'daily load shape', k:''}],
+    simple:`<p>Groups facilities by how they use energy — "sites that look like each other". A facility far from its peer group is probably wasting money. Great for a multi-site operations director to spot outliers.</p>`,
+    tech:`scikit-learn KMeans on 24-dimensional daily load profiles (one dim per hour). Finds centroid clusters. Distance from centroid = optimisation opportunity. Returns ClusterOpportunity with estimated monthly demand-charge savings.`,
+    io:{inputs:'Per-facility daily load profiles',outputs:'Cluster assignments + opportunity report with ₹ savings estimates'},
+    where:`Powers <strong>OptimizerAgent.run_optimization_opportunity</strong>, shown in <strong>Cross-Facility Benchmark</strong> view.`,
+    files:'ml/clustering.py'
+  },
+  // Trust & billing
+  evidently: {
+    cat:'trust', nm:'Evidently drift monitor', sim:'The "has the world changed" checker',
+    group:'ml-trust', status:'live',
+    metrics:[{t:'statistical test', k:''}, {t:'KS + PSI', k:''}],
+    simple:`<p>Checks whether today's data still looks like what the ML models were trained on. If a facility retrofits its HVAC, the models' predictions get stale. This flags when retraining is due.</p>`,
+    tech:`Compares train-window distribution vs recent-window distribution per feature using Kolmogorov-Smirnov test + Population Stability Index. Returns drift_detected flag + per-feature drift scores.`,
+    io:{inputs:'Reference dataset + current dataset',outputs:'Dict with drift_detected, method, per-feature scores'},
+    where:`Powers <strong>OptimizerAgent.run_drift_check</strong>. Shown in <strong>Full Agent Sweep</strong>. Trust-and-safety for the ML stack — keeps the system honest when the world changes.`,
+    files:'ml/drift_monitor.py'
+  },
+  cost: {
+    cat:'trust', nm:'ToU Cost Engine', sim:'The "convert kWh to rupees" calculator',
+    group:'ml-trust', status:'live',
+    metrics:[{t:'₹12/₹5.5/kWh', k:''}, {t:'₹150/kW demand', k:''}],
+    simple:`<p>Takes raw kilowatt-hours and multiplies by the Indian commercial Time-of-Use tariff to produce rupees. Peak hours (9 AM–6 PM) cost ₹12/kWh, off-peak (11 PM–6 AM) costs ₹5.5/kWh. Plus a ₹150/kW/month demand charge on the peak.</p>`,
+    tech:`Pure Python rate calculator with TouRateConfig dataclass. Peak/off-peak/weekend windows. Monthly cost summary + peak demand charge. Deterministic — same inputs always give same output.`,
+    io:{inputs:'Consumption DataFrame (kWh per 15min)',outputs:'Monthly cost summary (total, peak split, off-peak split, demand charge)'},
+    where:`Powers <strong>CostAgent</strong>, shown in <strong>Cost Analysis</strong> view, and used by every recommendation that mentions rupees saved.`,
+    files:'ml/cost_engine.py'
+  }
+};
+
+// -------------------- AI AGENTS --------------------
+const AG = {
+  anomalyAgent: {
+    cat:'spec', nm:'AnomalyAgent', role:'Spots unusual patterns in energy use',
+    group:'ag-specialists', avatar:'A', tools:['run_anomaly_detection','query_recent_readings','query_facility_stats','query_all_facilities'],
+    simple:`<p>Reads the last 30 days of data and asks: "Did anything weird happen?" Returns a ranked list of anomalies with timestamps and plain-English explanations.</p>`,
+    tech:`ReAct-loop agent. Calls <code>run_anomaly_detection</code> (PyOD + LSTM-AE), ranks by severity + confidence, synthesizes narrative via LLM or template fallback. Produces ActionRecommendation with Problem/Solution/Evidence.`,
+    example:`Operator asks: <em>"Any issues at Office HQ this week?"</em><br>AnomalyAgent → calls PyOD → finds 81 anomalies → reports: <em>"Found 81 spikes, worst at 286 kW on Oct 10 03:00 — likely stuck HVAC compressor, recommend technician inspection (₹8,000 vs ₹300,000 emergency replacement)."</em>`,
+    where:`Fires on <strong>Morning Briefing</strong> (parallel fan-out), <strong>AI Optimization</strong> tab 1, and when ChatAgent delegates anomaly questions.`
+  },
+  forecastAgent: {
+    cat:'spec', nm:'ForecastAgent', role:'Predicts tomorrow\'s load + flags peaks',
+    group:'ag-specialists', avatar:'F', tools:['run_forecast','query_facility_stats','query_recent_readings','query_all_facilities'],
+    simple:`<p>Reads recent demand, predicts the next 24 hours, and flags days where peak will likely exceed the 150 kW demand-charge threshold. Lets the operator pre-cool before the surge.</p>`,
+    tech:`ReAct-loop agent. Calls <code>run_forecast</code> (Chronos T5), extracts peak + mean, compares to threshold, writes recommendation with precool cost vs saved demand charge.`,
+    example:`Operator asks: <em>"Will warehouse have a peak tomorrow?"</em><br>ForecastAgent → Chronos → predicts 180 kW peak at 15:30 → reports: <em>"Peak will exceed 150 kW limit by 30 kW. Pre-cool between 14:00-15:00 saves ₹4,500 demand charge. Pre-cool cost ~₹500."</em>`,
+    where:`Morning Briefing, <strong>AI Optimization</strong> tab 2 (Demand Forecast), ChatAgent delegation.`
+  },
+  costAgent: {
+    cat:'spec', nm:'CostAgent', role:'Finds load-shift and tariff savings',
+    group:'ag-specialists', avatar:'₹', tools:['run_cost_analysis','query_peak_hours','query_facility_stats','run_forecast'],
+    simple:`<p>Watches the bill and finds loads running during expensive peak hours that could shift to off-peak. Each shift saves ₹6.5/kWh. Reports in rupees per month.</p>`,
+    tech:`ReAct-loop agent. Calls <code>run_cost_analysis</code> (ToU engine) + <code>query_peak_hours</code>. Identifies shiftable load. Estimates monthly savings = (shifted kWh) × (peak_rate − offpeak_rate).`,
+    example:`Operator asks: <em>"Why is office bill so high?"</em><br>CostAgent → ToU engine → peak-hour avg 110 kW, off-peak 48 kW → reports: <em>"Peak-to-offpeak ratio 2.3×. Shifting 20% of HVAC and lighting to 23:00-06:00 saves ~₹12,000/month."</em>`,
+    where:`Morning Briefing, <strong>Cost Analysis</strong> view, ChatAgent delegation.`
+  },
+  optimizerAgent: {
+    cat:'spec', nm:'OptimizerAgent', role:'Picks loads to shed + ranks safety',
+    group:'ag-specialists', avatar:'O', tools:['run_peak_optimization','run_drift_check','run_optimization_opportunity','query_facility_stats','query_all_facilities'],
+    simple:`<p>When demand gets close to the limit, this agent picks WHICH loads to turn off — ranked by how safe each one is to shed. Server rooms are always protected.</p>`,
+    tech:`ReAct-loop agent. Calls <code>run_peak_optimization</code> (XGBoost ranker) with current demand. Also calls <code>run_optimization_opportunity</code> (k-means) for cross-facility opportunities. Writes recommendation with ranked shortlist.`,
+    example:`Operator asks: <em>"Shed load now, demand is 170 kW"</em><br>OptimizerAgent → XGBoost → ranks loads → reports: <em>"Shed EV-Charger (22 kW) + Lighting-Ext (12 kW) + HVAC-Zone-A (45 kW). Total 79 kW relief, zero comfort impact. Server rooms protected."</em>`,
+    where:`Morning Briefing, <strong>AI Optimization</strong> tab 3 (Peak Shaving), <strong>Full Agent Sweep</strong>, Cross-Facility Benchmark.`
+  },
+  briefingAgent: {
+    cat:'meta', nm:'BriefingAgent', role:'Fans out to specialists + ranks recommendations',
+    group:'ag-meta', avatar:'B', tools:['_anomaly_candidates','_forecast_candidates','_cost_candidates','_optimizer_candidates'],
+    simple:`<p>The morning concierge. Calls all 4 specialists in parallel at startup, collects every recommendation, ranks them by (impact × confidence), writes the top 3 as Problem/Solution/Evidence cards.</p>`,
+    tech:`ThreadPoolExecutor fan-out with 15s per-specialist timeout. Fault-tolerant: if one specialist fails, the other three still contribute. Each candidate wrapped in try/except — exceptions become empty lists.`,
+    example:`At startup → BriefingAgent fans out → AnomalyAgent + CostAgent + OptimizerAgent + ForecastAgent all run → 7 candidates returned → ranked by impact×confidence → top 3 shown with Approve/Snooze/Dismiss buttons.`,
+    where:`Powers the entire <strong>Morning Briefing</strong> page. The 3 cards you see each morning are the output of this agent.`
+  },
+  forensicAgent: {
+    cat:'meta', nm:'ForensicAgent', role:'Drill-down reasoning + draft work orders',
+    group:'ag-meta', avatar:'🔍', tools:['query_recent_readings','query_facility_stats'],
+    simple:`<p>When you click Investigate on any anomaly, this agent writes a diagnostic card: why we flagged it, what probably caused it, what to do, and a work order ready to paste into ServiceNow.</p>`,
+    tech:`Takes an anomaly (timestamp, kW, score) as input. Looks up context (weather, schedule, prior similar events). Produces ForensicCard with why_flagged, hypothesis, recommended_action, confidence_note, work_order_draft. LLM-generated with template fallback.`,
+    example:`Operator clicks Investigate on anomaly at 03:14 → ForensicAgent → produces card: <em>"Why: 4.2× normal baseline during unoccupied hours. Hypothesis: Compressor stuck ON (relay fault). Action: Inspect HVAC-Zone-A relay panel. Work order drafted."</em>`,
+    where:`<strong>AI Optimization</strong> tab 1 → click any anomaly → Investigate button opens the ForensicAgent modal. 107 statements, 100% coverage, 40 tests.`
+  },
+  orchestrator: {
+    cat:'meta', nm:'EnergyOrchestrator', role:'Routes questions + runs full sweeps',
+    group:'ag-meta', avatar:'🎯', tools:['_route_query','full_sweep'],
+    simple:`<p>The dispatcher. Reads a free-form question, decides which specialists are relevant, and calls them. Full-sweep mode runs all 4 at once for a facility health check.</p>`,
+    tech:`Keyword-based routing (cost → CostAgent, forecast → ForecastAgent, etc.). full_sweep runs all specialists in parallel with per-agent timeout. Combines results into a single response.`,
+    example:`User asks: <em>"Analyze everything about Office HQ"</em> → Orchestrator → <code>full_sweep("office")</code> → parallel: Anomaly + Forecast + Cost + Optimizer → combined report shown side-by-side.`,
+    where:`<strong>Full Agent Sweep</strong> view. Also used internally by ChatAgent when multi-specialist answers are needed.`
+  },
+  chatAgent: {
+    cat:'meta', nm:'ChatAgent', role:'Natural-language Q&amp;A with 10 tools',
+    group:'ag-meta', avatar:'💬', tools:['query_facility_stats','query_all_facilities','query_recent_readings','query_peak_hours','run_anomaly_detection','run_forecast','run_cost_analysis','run_peak_optimization','run_drift_check','send_alert'],
+    simple:`<p>Ask it anything in English. It picks the right tools, calls them in sequence, and writes an answer with real numbers. Shows the tools it used so you can trust the result.</p>`,
+    tech:`BaseAgent subclass with 10 registered tools. ReAct loop: Observe → Think → Act. MAX_ITERATIONS = 5 (capped to stay within Groq free-tier 7k input-tokens-per-minute). Memory trimmed to last 20 messages.`,
+    example:`User: <em>"What is Office HQ energy usage this month?"</em><br>ChatAgent → calls <code>run_cost_analysis(office, 30)</code> → calls <code>query_peak_hours(office, 30)</code> → writes: <em>"Office consumed 50,259 kWh last 30 days. Peak demand 286 kW (unusual — avg is 34 kW). Total cost ₹454,906."</em>`,
+    where:`Powers the entire <strong>AI Chat Agent</strong> view. Each answer shows "tools called" so the user can trust the chain.`
+  },
+  // LLM backends (shown as cards in the LLM section)
+  llm_groq: {
+    cat:'llm', nm:'Groq · Qwen 3.8-27b', role:'Active LLM · 500 tok/s · free tier',
+    group:'ag-llm', avatar:'G', metrics:[{t:'ACTIVE', k:'active'}, {t:'7k ITPM', k:''}],
+    simple:`<p>Currently serving every chat answer and recommendation. Hosted by Groq, famously fast (~500 tokens/sec). Free tier of 7,000 input-tokens-per-minute — bounded by capping ReAct iterations at 5.</p>`,
+    tech:`qwen/qwen3.8-27b accessed via Groq's OpenAI-compatible endpoint. Sent with tool_choice:"none" to prevent native function-call attempts (Qwen follows our custom TOOL_CALL: text format). 429 retry with Groq's hinted wait time (capped 20s).`,
+    where:`Default provider. All ChatAgent + BriefingAgent + ForensicAgent calls go through this.`
+  },
+  llm_gemini: {
+    cat:'llm', nm:'Google Gemini Flash', role:'Backup · 20 req/day free',
+    group:'ag-llm', avatar:'g', metrics:[{t:'READY', k:'ready'}, {t:'20/day', k:''}],
+    simple:`<p>Google's fast cheap Gemini Flash. Was previously the default — swapped to Groq when daily quota exhausted mid-session.</p>`,
+    tech:`google-generativeai SDK with gemini-flash-latest alias. Set LLM_PROVIDER=gemini to switch.`,
+    where:`Primary fallback. Will activate automatically if Groq is unreachable and GEMINI_API_KEY is set.`
+  },
+  llm_ollama: {
+    cat:'llm', nm:'Ollama (local)', role:'Offline · any open-weight model',
+    group:'ag-llm', avatar:'O', metrics:[{t:'READY', k:'ready'}, {t:'local', k:''}],
+    simple:`<p>Run any open-weight LLM entirely on the laptop. Zero network, zero cost, full privacy. Model size limited by local RAM.</p>`,
+    tech:`HTTP POST to localhost:11434. Models: llama3.1, qwen, phi3, etc. Set LLM_PROVIDER=ollama.`,
+    where:`Privacy mode for air-gapped deployments.`
+  },
+  llm_openai: {
+    cat:'llm', nm:'OpenAI GPT-4o', role:'Premium · paid',
+    group:'ag-llm', avatar:'4', metrics:[{t:'READY', k:'ready'}, {t:'paid', k:''}],
+    simple:`<p>OpenAI's flagship. Highest narrative quality. Paid.</p>`,
+    tech:`openai SDK. Set LLM_PROVIDER=openai + OPENAI_API_KEY.`,
+    where:`Premium option. Swap in via Alert Settings.`
+  },
+  llm_claude: {
+    cat:'llm', nm:'Anthropic Claude', role:'Premium · 200k context',
+    group:'ag-llm', avatar:'C', metrics:[{t:'READY', k:'ready'}, {t:'paid', k:''}],
+    simple:`<p>Anthropic's Claude family. Excellent at long-context reasoning and forensic drill-downs.</p>`,
+    tech:`anthropic SDK. Set LLM_PROVIDER=anthropic + ANTHROPIC_API_KEY.`,
+    where:`Premium option. Great for ForensicAgent work orders.`
+  },
+  llm_hf: {
+    cat:'llm', nm:'HuggingFace', role:'Free · any model with endpoint',
+    group:'ag-llm', avatar:'H', metrics:[{t:'READY', k:'ready'}, {t:'free', k:''}],
+    simple:`<p>HuggingFace Inference API. Free rotating tier. Access to thousands of open-weight models.</p>`,
+    tech:`REST POST. Set LLM_PROVIDER=hf + HF_API_KEY.`,
+    where:`Fallback option. Set and forget.`
+  }
+};
+
+const $ = id => document.getElementById(id);
+
+function statusLabel(s){ return ({live:'Live now',ready:'Available',rmap:'Roadmap'})[s]||s; }
+
+function mcard(key, m){
+  const metricsHtml = (m.metrics||[]).map(x => `<span class="metric ${x.k||''}">${x.t}</span>`).join('');
+  return `<button class="m-card" data-type="ml" data-key="${key}">
+    <span class="nm">${m.nm}</span>
+    <span class="sim">${m.sim}</span>
+    <span class="metrics">${metricsHtml}</span>
+  </button>`;
+}
+function acard(key, a){
+  const color = AC[a.cat];
+  return `<button class="a-card" data-type="ag" data-key="${key}">
+    <span class="av" style="background:${color}">${a.avatar}</span>
+    <span class="info">
+      <span class="nm">${a.nm}</span>
+      <span class="role">${a.role}</span>
+      <span class="tag">${a.cat==='spec'?'Specialist':a.cat==='meta'?'Meta-agent':'LLM backend'}</span>
+    </span>
+  </button>`;
+}
+function llmcard(key, a){
+  const metricsHtml = (a.metrics||[]).map(x => `<span class="metric ${x.k||''}">${x.t}</span>`).join('');
+  return `<button class="m-card" data-type="ag" data-key="${key}">
+    <span class="nm">${a.nm}</span>
+    <span class="sim">${a.role}</span>
+    <span class="metrics">${metricsHtml}</span>
+  </button>`;
+}
+
+function render(){
+  // ML groups
+  const grp = {'ml-anomaly':[],'ml-forecast':[],'ml-opt':[],'ml-trust':[]};
+  for (const [k, m] of Object.entries(ML)) grp[m.group].push(mcard(k, m));
+  for (const [g, arr] of Object.entries(grp)) $(g).innerHTML = arr.join('');
+  // Agents
+  const specs = Object.entries(AG).filter(([_,a])=>a.cat==='spec').map(([k,a])=>acard(k,a)).join('');
+  const metas = Object.entries(AG).filter(([_,a])=>a.cat==='meta').map(([k,a])=>acard(k,a)).join('');
+  const llms  = Object.entries(AG).filter(([_,a])=>a.cat==='llm').map(([k,a])=>llmcard(k,a)).join('');
+  $('ag-specialists').innerHTML = specs;
+  $('ag-meta').innerHTML = metas;
+  $('ag-llm').innerHTML = llms;
+}
+
+function showDrawer(type, key){
+  const d = $('drawer');
+  const o = type === 'ml' ? ML[key] : AG[key];
+  if (!o) return;
+  const color = AC[o.cat];
+  const avatar = o.avatar || (o.nm||'?').substring(0,1);
+  const title = o.nm;
+  const sim = o.sim || o.role || '';
+  let tags = '';
+  if (o.status) tags += `<span class="dtag ${o.status}">${statusLabel(o.status)}</span>`;
+  if (type === 'ml') tags += `<span class="dtag tech">ML MODEL</span>`;
+  else if (o.cat === 'spec') tags += `<span class="dtag m">SPECIALIST AGENT</span>`;
+  else if (o.cat === 'meta') tags += `<span class="dtag m">META-AGENT</span>`;
+  else if (o.cat === 'llm') tags += `<span class="dtag">LLM BACKEND</span>`;
+
+  let html = `<div class="dh">
+    <div class="ic" style="background:${color}">${avatar}</div>
+    <div class="titles">
+      <div>${tags}</div>
+      <h2>${title}</h2>
+      <div class="simtitle">${sim}</div>
+    </div>
+    <button id="close">Close</button>
+  </div>
+  <div class="dgrid">`;
+
+  if (o.simple) html += `<div><h3>In simple words</h3><div class="box simple">${o.simple}</div></div>`;
+  if (o.tech) html += `<div><h3>How it works (technical)</h3><div class="box tech">${o.tech}</div></div>`;
+  if (o.example) html += `<div><h3>Example in action</h3><div class="box flow">${o.example}</div></div>`;
+  if (o.io) html += `<div><h3>Inputs &amp; outputs</h3><div class="box"><dl class="kv"><dt>Input</dt><dd>${o.io.inputs}</dd><dt>Output</dt><dd>${o.io.outputs}</dd></dl></div></div>`;
+  if (o.tools && o.tools.length) html += `<div><h3>Tools it can call</h3><div class="box"><code style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.9">${o.tools.map(t=>`<span style="background:var(--pill);padding:2px 7px;border-radius:4px;margin:2px 2px;display:inline-block">${t}</span>`).join('')}</code></div></div>`;
+  if (o.where) html += `<div><h3>Where you see it in WattWise</h3><div class="box where">${o.where}</div></div>`;
+  if (o.files) html += `<div><h3>Source + tests</h3><div class="box"><code style="font-family:'JetBrains Mono',monospace;font-size:12px">${o.files}</code></div></div>`;
+  html += `</div>`;
+  d.innerHTML = html;
+  document.body.classList.add('drawer-open');
+  $('close').addEventListener('click', ()=>{ document.body.classList.remove('drawer-open'); clearSel(); });
+}
+function clearSel(){ document.querySelectorAll('.sel').forEach(el=>el.classList.remove('sel')); }
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-key]');
+  if (b) {
+    clearSel();
+    b.classList.add('sel');
+    showDrawer(b.dataset.type, b.dataset.key);
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { document.body.classList.remove('drawer-open'); clearSel(); }
+});
+render();
+</script>
+</body>
+</html>

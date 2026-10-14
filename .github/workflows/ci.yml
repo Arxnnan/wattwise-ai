@@ -5,11 +5,17 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  # Nightly model-accuracy regression (catches ML drift from upstream model updates)
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily
 
 jobs:
+
+  # ---------------------------------------------------------------------------
+  # Lint + unit + integration + coverage gate - runs on every push + PR
+  # ---------------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,14 +34,20 @@ jobs:
       - name: Lint (ruff)
         run: |
           pip install ruff
-          ruff check . || true   # non-blocking until codebase is populated
+          ruff check .
 
-      - name: Run tests with coverage
+      - name: Unit tests
+        run: pytest tests/unit/ -q --tb=line
+
+      - name: Integration tests
+        run: pytest tests/integration/ -q --tb=line
+
+      - name: Coverage gate (>= 80%)
         run: |
-          pytest --cov=. --cov-report=term-missing --cov-report=xml
-
-      - name: Enforce coverage >= 80%
-        run: pytest --cov=. --cov-fail-under=80
+          pytest tests/unit/ tests/integration/ \
+            --cov=ml --cov=ingestion --cov=triggers --cov=bms_simulator \
+            --cov-report=term-missing --cov-report=xml \
+            --cov-fail-under=80
 
       - name: Upload coverage artifact
         if: always()
@@ -44,16 +56,38 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  # ---------------------------------------------------------------------------
+  # Model accuracy gates - runs on every push to main + nightly
+  # Separate job because it loads Chronos (~45 MB, ~30s)
+  # ---------------------------------------------------------------------------
+  model-accuracy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Model accuracy gates (Chronos MAPE, PyOD F1, LSTM-AE ROC-AUC)
+        run: pytest tests/model_accuracy/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # dbt test placeholder - runs once analytics/dbt is populated
+  # ---------------------------------------------------------------------------
   dbt-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: dbt deps + test
         run: |
           pip install dbt-core dbt-duckdb
-          echo "dbt test placeholder — runs once analytics/dbt project exists"
+          echo "dbt test placeholder - runs once analytics/dbt project exists"
           # cd analytics/dbt && dbt deps && dbt test

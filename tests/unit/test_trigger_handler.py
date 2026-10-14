@@ -1,10 +1,34 @@
 """Unit tests — local trigger handler (email alerting), mocked SMTP."""
 from __future__ import annotations
 from datetime import datetime, timezone
+from email import message_from_string
 
 import pytest
 
 from triggers.handler import TriggerHandler, EnergyEvent
+
+
+def _sent_body_text(mock_server) -> str:
+    """Extract the decoded plain + html body text from the sendmail call.
+
+    The handler sends a multipart alternative (plain + HTML); each part is
+    utf-8 and gets base64-encoded by Python's email module. We decode both
+    parts and concatenate so substring assertions work regardless of encoding.
+    """
+    raw = mock_server.sendmail.call_args[0][2]
+    msg = message_from_string(raw)
+    parts = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() in ("text/plain", "text/html"):
+                payload = part.get_payload(decode=True)
+                if payload is not None:
+                    parts.append(payload.decode("utf-8", errors="replace"))
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload is not None:
+            parts.append(payload.decode("utf-8", errors="replace"))
+    return "\n".join(parts)
 
 
 def _event(narrative: str = "") -> EnergyEvent:
@@ -66,16 +90,16 @@ class TestFire:
         handler = TriggerHandler()
         handler.fire(_event(narrative="Chiller drawing 3x nameplate load."))
 
-        sent_body = mock_server.sendmail.call_args[0][2]
-        assert "Chiller drawing 3x nameplate load." in sent_body
+        body = _sent_body_text(mock_server)
+        assert "Chiller drawing 3x nameplate load." in body
 
     def test_email_placeholder_when_narrative_missing(self, mock_smtp):
         _, mock_server = mock_smtp
         handler = TriggerHandler()
         handler.fire(_event(narrative=""))
 
-        sent_body = mock_server.sendmail.call_args[0][2]
-        assert "No narrative generated yet." in sent_body
+        body = _sent_body_text(mock_server)
+        assert "No narrative generated yet." in body
 
     def test_multiple_events_accumulate(self, mock_smtp):
         handler = TriggerHandler()

@@ -87,10 +87,10 @@ class GeminiProvider(LLMProvider):
 # ─────────────────────────── Groq ───────────────────────────
 
 class GroqProvider(LLMProvider):
-    """Groq is a hosted provider that runs Llama 3 / Mixtral at ~500 tokens/sec.
-    Free tier: 30 req/min on Llama 3. OpenAI-compatible API."""
+    """Groq is a hosted provider that runs GPT-OSS / Qwen at ~500 tokens/sec.
+    Free tier: 30 req/min. OpenAI-compatible API."""
     name = "groq"
-    default_model = "llama-3.3-70b-versatile"
+    default_model = "openai/gpt-oss-20b"
 
     def __init__(self, model: str | None = None):
         self.model = model or os.getenv("LLM_MODEL") or self.default_model
@@ -103,19 +103,48 @@ class GroqProvider(LLMProvider):
         return bool(self._api_key)
 
     def generate(self, prompt: str) -> str:
-        import requests
-        r = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self._api_key}"},
-            json={
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
-            },
-            timeout=60,
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        import requests, re, time
+        # gpt-oss-20b and similar tool-calling models on Groq will try to emit
+        # OpenAI-style function_call JSON when a prompt mentions tools, then
+        # Groq 400s with "Tool choice is none, but model called a tool" because
+        # we haven't declared a tools array. Our ReAct loop parses our own
+        # TOOL_CALL: text format, so force the model to pure text output.
+        body = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "tool_choice": "none",
+        }
+        for attempt in range(2):
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                json=body,
+                timeout=60,
+            )
+            if r.status_code == 429 and attempt == 0:
+                # Qwen free tier has a 7k input-tokens-per-minute window; a
+                # multi-call ReAct loop can burst past it. Retry once after
+                # the delay Groq hints at (capped at 20s so we don't hang).
+                wait_s = 2.0
+                try:
+                    err_msg = r.json().get("error", {}).get("message", "")
+                    m = re.search(r"try again in ([\d.]+)s", err_msg)
+                    if m:
+                        wait_s = min(float(m.group(1)) + 0.5, 20.0)
+                except Exception:
+                    pass
+                time.sleep(wait_s)
+                continue
+            if r.status_code >= 400:
+                # Surface Groq's actual error body so a 400 isn't a mystery
+                try:
+                    err = r.json().get("error", r.json())
+                except Exception:
+                    err = r.text[:500]
+                raise RuntimeError(f"Groq {r.status_code}: {err}")
+            return r.json()["choices"][0]["message"]["content"]
+        raise RuntimeError(f"Groq {r.status_code}: rate limit retry exhausted")
 
 
 # ─────────────────────────── Ollama (local) ───────────────────────────

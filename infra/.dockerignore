@@ -1,0 +1,43 @@
+# Exclude everything bulky/local-only from the build context
+# Keeps upload to ACR small and fast
+
+.venv/
+venv/
+.git/
+.github/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Tests - not needed in prod image
+tests/
+
+# Local secrets - MUST NOT ship
+.streamlit/alert_settings.json
+.streamlit/audit_log.jsonl
+
+# Docs/artifacts - not runtime code
+docs/
+*.md
+*.pdf
+*.pptx
+*.docx
+
+# Infra scripts themselves
+infra/
+
+# IDE
+.vscode/
+.idea/
+
+# Datasets / notebooks
+data/
+notebooks/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db

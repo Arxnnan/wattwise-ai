@@ -76,6 +76,60 @@ def _serialise(obj):
     return obj
 
 
+def _notify_decision(
+    suggestion: "AIsuggestion", decision: "HumanDecision", payload: dict
+) -> str:
+    """Email ops with a human-readable summary of an approved decision.
+
+    Returns a short status string ("sent", "skipped:no-recipients",
+    "skipped:no-smtp", "failed:<reason>") so the UI can show WHY email didn't
+    land. Never raises.
+    """
+    import os as _os
+
+    if not _os.getenv("SMTP_HOST") or _os.getenv("SMTP_HOST") == "localhost":
+        return "skipped:no-smtp"
+    if not _os.getenv("ALERT_RECIPIENTS"):
+        return "skipped:no-recipients"
+
+    try:
+        from triggers.handler import TriggerHandler, render_decision_html
+
+        th = TriggerHandler()
+        action_label = suggestion.action_type.replace("_", " ").title()
+        subject = (
+            f"[WattWise AI] {decision.outcome.upper()} — "
+            f"{action_label} · {suggestion.title}"
+        )
+        text = f"""WattWise AI — Human-approved decision
+
+Decision     : {decision.outcome.upper()} by {decision.user}
+Decided (UTC): {decision.decided_at.isoformat()}
+
+Suggestion
+    Title      : {suggestion.title}
+    Agent      : {suggestion.agent_name}
+    Category   : {suggestion.category}
+    Action     : {action_label}
+    Confidence : {suggestion.confidence:.0%}
+    Impact     : INR {suggestion.impact_inr_month:,.0f} / month
+
+Why the AI suggested this
+    {suggestion.rationale}
+
+Dispatched payload
+{json.dumps(payload, indent=2, default=str)}
+
+Open audit log: http://localhost:3001
+"""
+        html = render_decision_html(suggestion, decision, payload)
+        ok = th.send_mail(subject, text, html)
+        return "sent" if ok else "failed:smtp"
+    except Exception as e:  # pragma: no cover - defensive
+        log.warning("Decision email failed: %s", e)
+        return f"failed:{type(e).__name__}"
+
+
 class ActionHandler:
     """Records AI suggestions, human decisions and dispatches approved ones."""
 
@@ -130,9 +184,12 @@ class ActionHandler:
                 from triggers.dispatch import dispatch_bms_command  # type: ignore
 
                 dispatch_bms_command(
-                    facility_id=payload.get("facility_id", ""),
+                    facility_id=payload.get("facility") or payload.get("facility_id", ""),
                     device_id=payload.get("device_id", ""),
                     action=payload.get("action", "shed"),
+                    action_type="shed_load",
+                    loads=payload.get("loads", []),
+                    shed_kw=payload.get("shed_kw", 0),
                 )
                 channels_fired.append("bms")
             except Exception as e:  # pragma: no cover - defensive
@@ -147,33 +204,17 @@ class ActionHandler:
             )
             channels_fired.append("ticket_log")
 
-        elif action == "send_alert":
-            try:
-                from triggers.handler import EnergyEvent, TriggerHandler
-
-                th = TriggerHandler()
-                event = EnergyEvent(
-                    event_type=payload.get("event_type", "anomaly"),
-                    facility_id=payload.get("facility_id", ""),
-                    device_id=payload.get("device_id", ""),
-                    timestamp=datetime.now(timezone.utc),
-                    observed_value=float(payload.get("observed_value", 0.0)),
-                    expected_value=float(payload.get("expected_value", 0.0)),
-                    anomaly_score=float(payload.get("anomaly_score", 0.0)),
-                    narrative=payload.get("narrative", suggestion.rationale),
-                )
-                th.fire(event)
-                channels_fired.append("email_alert")
-            except Exception as e:  # pragma: no cover - defensive
-                log.warning("Alert dispatch failed: %s", e)
-                status = "error"
-
-        elif action in ("shift_schedule", "override_threshold", "custom"):
+        elif action in ("send_alert", "shift_schedule", "override_threshold", "custom"):
             log.info("[%s] payload=%s", action.upper(), payload)
             channels_fired.append("log_only")
 
         else:  # pragma: no cover - Literal already constrains this
             status = "unknown_action"
+
+        # Every approved/modified decision notifies ops by email — single codepath,
+        # independent of the operational side-effect above.
+        email_outcome = _notify_decision(suggestion, decision, payload)
+        channels_fired.append(f"email:{email_outcome}")
 
         result = {
             "status": status,

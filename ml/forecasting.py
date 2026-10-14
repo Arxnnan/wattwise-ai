@@ -28,7 +28,10 @@ class ChronosForecaster:
     Falls back gracefully if chronos is not installed.
     """
 
-    def __init__(self, model_size: str = "tiny"):
+    def __init__(self, model_size: str = "small"):
+        # 'small' (~45 MB, ~200 MB RAM) beats 'tiny' by ~6x on MAPE for Indian
+        # commercial office load profiles (1.5% vs 9.5% measured, 2026-10-13).
+        # 'tiny' is kept as an option for memory-constrained edge deployments.
         self.model_size = model_size
         self._pipeline = None
         self._available = self._try_load()
@@ -143,7 +146,7 @@ class ForecastEngine:
     """Unified forecasting interface — Chronos first, Prophet fallback."""
 
     def __init__(self):
-        self.chronos = ChronosForecaster(model_size="tiny")
+        self.chronos = ChronosForecaster(model_size="small")
         self.prophet: dict[str, ProphetForecaster] = {}
 
     def fit_prophet(self, facility_id: str, series: pd.Series) -> None:

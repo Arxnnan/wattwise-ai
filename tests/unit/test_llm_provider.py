@@ -60,6 +60,7 @@ class TestGroqProvider:
         monkeypatch.setenv("GROQ_API_KEY", "gsk_test")
         p = GroqProvider()
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {"choices": [{"message": {"content": "hello"}}]}
         mock_resp.raise_for_status.return_value = None
         with patch("requests.post", return_value=mock_resp) as mock_post:

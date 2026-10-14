@@ -97,16 +97,22 @@ def test_execute_approved_shed_load_calls_bms(handler: ActionHandler):
     sug = _mk_suggestion("shed_load")
     dec = _mk_decision(outcome="approved")
 
-    with patch("triggers.dispatch.dispatch_bms_command") as m:
+    with patch("triggers.dispatch.dispatch_bms_command") as m, \
+         patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
         m.return_value = {"status": "logged"}
         result = handler.execute_approved(sug, dec)
 
-    m.assert_called_once_with(
-        facility_id="office", device_id="off-hvac-02", action="shed"
-    )
+    m.assert_called_once()
+    kwargs = m.call_args.kwargs
+    assert kwargs["facility_id"] == "office"
+    assert kwargs["device_id"] == "off-hvac-02"
+    assert kwargs["action"] == "shed"
+    assert kwargs["action_type"] == "shed_load"
     assert result["status"] == "ok"
     assert result["action_type"] == "shed_load"
     assert "bms" in result["channels_fired"]
+    # Unified email path runs for every approved action
+    assert any(ch.startswith("email:") for ch in result["channels_fired"])
     # action_executed was audited
     rows = handler.read_log()
     assert any(r.get("event") == "action_executed" for r in rows)
@@ -115,12 +121,16 @@ def test_execute_approved_shed_load_calls_bms(handler: ActionHandler):
 def test_execute_approved_dispatch_technician_logs_ticket(handler: ActionHandler):
     sug = _mk_suggestion("dispatch_technician")
     dec = _mk_decision(outcome="approved")
-    result = handler.execute_approved(sug, dec)
+    with patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
+        result = handler.execute_approved(sug, dec)
     assert result["status"] == "ok"
     assert "ticket_log" in result["channels_fired"]
+    assert any(ch.startswith("email:") for ch in result["channels_fired"])
 
 
-def test_execute_approved_send_alert_fires_trigger_handler(handler: ActionHandler):
+def test_execute_approved_send_alert_notifies_ops(handler: ActionHandler):
+    """send_alert is log-only operationally; the unified _notify_decision path
+    is what dispatches the email, independent of action_type."""
     sug = _mk_suggestion("send_alert")
     sug.one_click_payload = {
         "event_type": "anomaly",
@@ -133,31 +143,35 @@ def test_execute_approved_send_alert_fires_trigger_handler(handler: ActionHandle
     }
     dec = _mk_decision(outcome="approved")
 
-    with patch("triggers.handler.TriggerHandler.fire", return_value=True) as fire_m:
+    with patch("triggers.action_handler._notify_decision", return_value="sent") as notify_m:
         result = handler.execute_approved(sug, dec)
 
-    fire_m.assert_called_once()
+    notify_m.assert_called_once()
     assert result["status"] == "ok"
-    assert "email_alert" in result["channels_fired"]
+    assert "email:sent" in result["channels_fired"]
 
 
 def test_execute_approved_custom_logs_only(handler: ActionHandler):
     sug = _mk_suggestion("custom")
     dec = _mk_decision(outcome="approved")
-    result = handler.execute_approved(sug, dec)
-    assert result["channels_fired"] == ["log_only"]
+    with patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
+        result = handler.execute_approved(sug, dec)
+    assert "log_only" in result["channels_fired"]
+    assert any(ch.startswith("email:") for ch in result["channels_fired"])
 
 
 def test_execute_approved_shift_schedule_logs_only(handler: ActionHandler):
     sug = _mk_suggestion("shift_schedule")
-    result = handler.execute_approved(sug, _mk_decision(outcome="approved"))
-    assert result["channels_fired"] == ["log_only"]
+    with patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
+        result = handler.execute_approved(sug, _mk_decision(outcome="approved"))
+    assert "log_only" in result["channels_fired"]
 
 
 def test_execute_approved_override_threshold_logs_only(handler: ActionHandler):
     sug = _mk_suggestion("override_threshold")
-    result = handler.execute_approved(sug, _mk_decision(outcome="approved"))
-    assert result["channels_fired"] == ["log_only"]
+    with patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
+        result = handler.execute_approved(sug, _mk_decision(outcome="approved"))
+    assert "log_only" in result["channels_fired"]
 
 
 def test_execute_approved_modified_uses_modified_payload(handler: ActionHandler):
@@ -170,25 +184,31 @@ def test_execute_approved_modified_uses_modified_payload(handler: ActionHandler)
             "action": "soft_shed",
         },
     )
-    with patch("triggers.dispatch.dispatch_bms_command") as m:
+    with patch("triggers.dispatch.dispatch_bms_command") as m, \
+         patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
         m.return_value = {"status": "logged"}
         handler.execute_approved(sug, dec)
 
-    m.assert_called_once_with(
-        facility_id="warehouse", device_id="wh-chill-01", action="soft_shed"
-    )
+    m.assert_called_once()
+    kwargs = m.call_args.kwargs
+    assert kwargs["facility_id"] == "warehouse"
+    assert kwargs["device_id"] == "wh-chill-01"
+    assert kwargs["action"] == "soft_shed"
 
 
 def test_execute_approved_modified_without_payload_falls_back(handler: ActionHandler):
     """modified outcome but modified_payload is None → use suggestion payload."""
     sug = _mk_suggestion("shed_load")
     dec = _mk_decision(outcome="modified", modified_payload=None)
-    with patch("triggers.dispatch.dispatch_bms_command") as m:
+    with patch("triggers.dispatch.dispatch_bms_command") as m, \
+         patch("triggers.action_handler._notify_decision", return_value="skipped:no-smtp"):
         m.return_value = {"status": "logged"}
         handler.execute_approved(sug, dec)
-    m.assert_called_once_with(
-        facility_id="office", device_id="off-hvac-02", action="shed"
-    )
+    m.assert_called_once()
+    kwargs = m.call_args.kwargs
+    assert kwargs["facility_id"] == "office"
+    assert kwargs["device_id"] == "off-hvac-02"
+    assert kwargs["action"] == "shed"
 
 
 # --------------------------------------------- 4. rejects dismissed / snoozed
@@ -330,20 +350,22 @@ def test_serialise_recurses_lists_and_dicts():
 
 
 # ---------------------------------------- 11. mock TriggerHandler for send_alert
-def test_send_alert_path_uses_mocked_fire(handler: ActionHandler):
-    """Explicitly verifies the mocked TriggerHandler.fire branch (test #11)."""
+def test_send_alert_path_notifies_via_unified_email(handler: ActionHandler):
+    """The send_alert branch is now log-only operationally; the unified
+    _notify_decision helper is responsible for every approved email."""
     sug = _mk_suggestion("send_alert")
-    sug.one_click_payload = {}  # exercise defaults
+    sug.one_click_payload = {}
     dec = _mk_decision(outcome="approved")
-    with patch("triggers.handler.TriggerHandler.fire", return_value=True) as fire_m:
+    with patch("triggers.action_handler._notify_decision", return_value="sent") as notify_m:
         result = handler.execute_approved(sug, dec)
-    assert fire_m.called
+    notify_m.assert_called_once()
+    args = notify_m.call_args.args
+    # Called with (suggestion, decision, payload) — payload is the suggestion's
+    # one_click_payload when the decision wasn't modified.
+    assert args[0].action_type == "send_alert"
+    assert args[1].outcome == "approved"
     assert result["status"] == "ok"
-    # defaults applied — observed/expected/anomaly all zero but no explosion
-    args = fire_m.call_args.args
-    event = args[0]
-    assert event.event_type == "anomaly"
-    assert event.narrative == sug.rationale
+    assert "email:sent" in result["channels_fired"]
 
 
 # ---------------------------------------- 12. tmp_path isolation sanity check

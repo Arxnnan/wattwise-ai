@@ -63,3 +63,10 @@ Thumbs.db
 
 # WattWise AI runtime settings (contains API keys)
 .streamlit/alert_settings.json
+
+# Append-only audit log (contains demo human-decision history)
+.streamlit/audit_log.jsonl
+
+# Deployment artefacts (contain real ACR passwords + secrets at deploy time)
+infra/container-group.yaml
+infra/.deployed-resources.json
