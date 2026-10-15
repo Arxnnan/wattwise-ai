@@ -1,0 +1,38 @@
+# WattWise AI - Streamlit dashboard (thin layer on wattwise-base:v1)
+# ============================================================================
+# This Dockerfile does NOT reinstall dependencies. All heavy pip installs
+# live in wattwise-base:v1 (see Dockerfile.base). Code-only rebuilds take
+# ~60-90s instead of ~13 min.
+#
+# Build:
+#   az acr build -r ww101942acr -t streamlit:v3 -f infra/Dockerfile.streamlit.v2 .
+#
+# When requirements.txt changes, rebuild the base image FIRST, then this one.
+# ============================================================================
+FROM ww101942acr.azurecr.io/wattwise-base:v2
+
+WORKDIR /app
+
+# App code - copy only what runtime needs
+COPY dashboards/ /app/dashboards/
+COPY ml/        /app/ml/
+COPY ingestion/ /app/ingestion/
+COPY triggers/  /app/triggers/
+COPY bms_simulator/ /app/bms_simulator/
+
+# Writable paths for Streamlit session state + audit log (ephemeral per-container)
+RUN mkdir -p /app/.streamlit
+
+# Streamlit configuration (headless mode for containers)
+ENV STREAMLIT_SERVER_HEADLESS=true \
+    STREAMLIT_SERVER_PORT=8501 \
+    STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+EXPOSE 8501
+
+# Healthcheck - Streamlit's built-in endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "dashboards/streamlit/app.py"]

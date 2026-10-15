@@ -93,7 +93,7 @@ def _notify_decision(
         return "skipped:no-recipients"
 
     try:
-        from triggers.handler import TriggerHandler, render_decision_html
+        from triggers.handler import TriggerHandler, _dashboard_url, render_decision_html
 
         th = TriggerHandler()
         action_label = suggestion.action_type.replace("_", " ").title()
@@ -120,7 +120,7 @@ Why the AI suggested this
 Dispatched payload
 {json.dumps(payload, indent=2, default=str)}
 
-Open audit log: http://localhost:3001
+Open audit log: {_dashboard_url('Audit Log')}
 """
         html = render_decision_html(suggestion, decision, payload)
         ok = th.send_mail(subject, text, html)

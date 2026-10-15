@@ -63,6 +63,9 @@ components.html("""
     btn.onmouseleave = () => { btn.style.background = '#161b22'; btn.style.borderColor = '#30363d'; };
 
     btn.onclick = function() {
+        // Only click Streamlit's native toggle — never touch the sidebar directly.
+        // The transform fallback caused partial-render states in production because
+        // Streamlit's own React handler and our manual transform disagreed.
         const selectors = [
             '[data-testid="stSidebarCollapseButton"] button',
             '[data-testid="stSidebarCollapseButton"]',
@@ -74,14 +77,6 @@ components.html("""
         for (const sel of selectors) {
             const el = parentDoc.querySelector(sel);
             if (el) { el.click(); return; }
-        }
-        // Fallback: toggle sidebar via aria attribute
-        const sidebar = parentDoc.querySelector('section[data-testid="stSidebar"]');
-        if (sidebar) {
-            const expanded = sidebar.getAttribute('aria-expanded') !== 'false';
-            sidebar.style.transform = expanded ? 'translateX(-100%)' : 'translateX(0)';
-            sidebar.style.transition = 'transform 0.2s';
-            sidebar.setAttribute('aria-expanded', expanded ? 'false' : 'true');
         }
     };
     parentDoc.body.appendChild(btn);
@@ -211,10 +206,10 @@ st.markdown("""
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
 
-    /* Hide Streamlit's native collapse/expand buttons — our custom hamburger owns this */
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"] {
+    /* Hide Streamlit's native open-state collapse button — our custom hamburger owns this.
+       Keep the collapsed-state expand control visible as a reliable fallback when
+       the custom hamburger's click-forwarding fails (e.g. in iframed/prod contexts). */
+    [data-testid="stSidebarCollapseButton"] {
         display: none !important;
     }
     /* Hide the empty iframe that our hamburger component leaves behind */
@@ -232,8 +227,19 @@ st.markdown("""
         background: var(--bg-sidebar) !important;
         border-right: 1px solid var(--border);
         width: 260px !important;
+        overflow: hidden !important;
     }
     section[data-testid="stSidebar"] > div { padding: 1.25rem 0.75rem; }
+
+    /* When Streamlit marks the sidebar collapsed, hide its CONTENT so no text
+       fragments leak through to the main area. We don't touch width/margin —
+       Streamlit's own layout handles the main-content reflow correctly. */
+    section[data-testid="stSidebar"][aria-expanded="false"] * {
+        visibility: hidden !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        border-right: none !important;
+    }
 
     .brand-wrap {
         display: flex; align-items: center; gap: 14px;
@@ -996,7 +1002,12 @@ def render_recommendation_strip(view_name: str, facility_id: str):
     """, unsafe_allow_html=True)
 
     # Action buttons (always rendered as Streamlit buttons for keyboard accessibility)
-    if not _decided:
+    # Viewer role is read-only: show a notice instead of actionable buttons.
+    _viewer_role = (st.session_state.auth or {}).get("role", "Viewer")
+    _can_act = _viewer_role in ("Admin", "Operator")
+    if not _decided and not _can_act:
+        st.info("Read-only mode — contact an operator to approve, snooze, or dismiss this recommendation.")
+    if not _decided and _can_act:
         _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1, 1, 3])
         if _bc1.button("Approve", key=f"strip_approve_{rec.id}", type="primary", use_container_width=True):
             try:
@@ -1545,7 +1556,10 @@ with st.sidebar:
                             format_func=lambda x: {"office": "Office HQ", "warehouse": "Warehouse", "datacentre": "Data Centre"}[x],
                             label_visibility="collapsed")
 
-    # Role-gated nav items (Audit Log is admin-only)
+    # Role-gated nav items
+    #   Viewer:   analytics views only (no settings, no audit)
+    #   Operator: analytics + Alert Settings (can configure channels)
+    #   Admin:    everything + Audit Log
     _role = (st.session_state.auth or {}).get("role", "Viewer")
     _nav_items = [
         "Morning Briefing",
@@ -1556,8 +1570,9 @@ with st.sidebar:
         "Cross-Facility Benchmark",
         "AI Chat Agent",
         "Full Agent Sweep",
-        "Alert Settings",
     ]
+    if _role in ("Admin", "Operator"):
+        _nav_items.append("Alert Settings")
     if _role == "Admin":
         _nav_items.append("Audit Log")
 
@@ -1681,9 +1696,18 @@ if view == "Morning Briefing":
     _window_key = f"briefing_window_{facility}"       # rotating index into the pool
     _decisions_key = f"briefing_decisions_{facility}"
     if _decisions_key not in st.session_state:
-        st.session_state[_decisions_key] = {}  # {rec_id: "approved"|"snoozed"|"dismissed"}
+        # Keyed by CONTENT FINGERPRINT (not uuid) so decisions survive a
+        # Refresh — BriefingAgent assigns a fresh uuid on every run, but the
+        # same real-world problem produces the same fingerprint.
+        st.session_state[_decisions_key] = {}  # {fingerprint: "approved"|"snoozed"|"dismissed"}
     if _window_key not in st.session_state:
         st.session_state[_window_key] = 0
+
+    def _rec_fingerprint(rec) -> str:
+        """Stable content hash — same real-world recommendation → same key."""
+        import hashlib as _h
+        payload = f"{facility}|{rec.category}|{rec.action_type}|{rec.title}|{int(rec.impact_inr_month // 100)}"
+        return _h.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
     _col_hdr, _col_btn = st.columns([3, 1])
     with _col_hdr:
@@ -1714,11 +1738,12 @@ if view == "Morning Briefing":
     _decisions_map = st.session_state[_decisions_key]
     # Decided items from the pool — surfaced in the summary strip below so the
     # user can always see what they've approved / snoozed / dismissed.
-    _decided_recs = [r for r in _pool if r.id in _decisions_map]
+    # Decisions are keyed by CONTENT FINGERPRINT (survives refresh), not uuid.
+    _decided_recs = [r for r in _pool if _rec_fingerprint(r) in _decisions_map]
     # Filter out items the user has already decided on, then slice a 3-item
     # window from the rotating offset. Dedupe at the end so a short pool never
     # produces repeated keys on the page.
-    _undecided = [r for r in _pool if r.id not in _decisions_map]
+    _undecided = [r for r in _pool if _rec_fingerprint(r) not in _decisions_map]
     if _undecided:
         _window = st.session_state[_window_key]
         _step = 3
@@ -1737,9 +1762,9 @@ if view == "Morning Briefing":
     # ── Decisions-so-far summary strip ─────────────────────────────────────
     if _decided_recs:
         _results_cache_for_strip = st.session_state.get(f"briefing_results_{facility}", {})
-        _n_appr = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "approved")
-        _n_snz = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "snoozed")
-        _n_dis = sum(1 for r in _decided_recs if _decisions_map.get(r.id) == "dismissed")
+        _n_appr = sum(1 for r in _decided_recs if _decisions_map.get(_rec_fingerprint(r)) == "approved")
+        _n_snz = sum(1 for r in _decided_recs if _decisions_map.get(_rec_fingerprint(r)) == "snoozed")
+        _n_dis = sum(1 for r in _decided_recs if _decisions_map.get(_rec_fingerprint(r)) == "dismissed")
         st.markdown(f"""
         <div style="display:flex; gap:14px; align-items:center; margin:6px 0 10px 0;
                     padding:10px 16px; background:rgba(40,179,180,0.04);
@@ -1755,8 +1780,9 @@ if view == "Morning Briefing":
         with st.expander(f"Review {len(_decided_recs)} decided item{'s' if len(_decided_recs) != 1 else ''}", expanded=False):
             # Show most-recent decisions first (newest at top is friendlier)
             for _dr in reversed(_decided_recs):
-                _dec = _decisions_map.get(_dr.id)
-                _res = _results_cache_for_strip.get(_dr.id)
+                _fp = _rec_fingerprint(_dr)
+                _dec = _decisions_map.get(_fp)
+                _res = _results_cache_for_strip.get(_fp)
                 _d_meta = {
                     "approved": ("#28B3B4", "✓", "APPROVED",
                                  f"Action fired &middot; {', '.join(_res.get('channels_fired', ['logged']))}" if _res else "Action logged"),
@@ -1819,10 +1845,11 @@ if view == "Morning Briefing":
         _results_cache = st.session_state[f"briefing_results_{facility}"]
 
         for _i, _rec in enumerate(_recs):
-            _decision = st.session_state[_decisions_key].get(_rec.id)
+            _rec_fp = _rec_fingerprint(_rec)
+            _decision = st.session_state[_decisions_key].get(_rec_fp)
             _conf_pct = int(_rec.confidence * 100)
             _cat_meta, _impact_str, _risk_text, _rationale_text = _enrich(_rec)
-            _result = _results_cache.get(_rec.id)  # persisted dispatch outcome
+            _result = _results_cache.get(_rec_fp)  # persisted dispatch outcome
 
             # ── If user has decided, collapse to a 1-line confirmation (hide the big card) ──
             if _decision:
@@ -1959,7 +1986,12 @@ if view == "Morning Briefing":
                     """, unsafe_allow_html=True)
 
                 _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1, 1, 2])
-                _disabled = _decision is not None
+                # Viewers get disabled buttons + tooltip; only Admin/Operator can act
+                _briefing_role = (st.session_state.auth or {}).get("role", "Viewer")
+                _can_decide = _briefing_role in ("Admin", "Operator")
+                _disabled = _decision is not None or not _can_decide
+                if not _can_decide and _decision is None:
+                    st.info("Read-only mode — contact an operator to approve, snooze, or dismiss.")
 
                 if _bc1.button("Approve", key=f"approve_{_rec.id}", type="primary", disabled=_disabled, use_container_width=True):
                     _sugg = AIsuggestion(
@@ -1978,23 +2010,23 @@ if view == "Morning Briefing":
                     _handler.record_decision(_dec)
                     try:
                         _result = _handler.execute_approved(_sugg, _dec)
-                        st.session_state[_decisions_key][_rec.id] = "approved"
-                        _results_cache[_rec.id] = _result  # persist so banner survives rerun
+                        st.session_state[_decisions_key][_rec_fp] = "approved"
+                        _results_cache[_rec_fp] = _result  # persist so banner survives rerun
                     except Exception as _ex:
-                        st.session_state[_decisions_key][_rec.id] = "approved"
-                        _results_cache[_rec.id] = {"status": "error", "channels_fired": [f"error: {_ex}"], "timestamp": datetime.now(timezone.utc).isoformat()}
+                        st.session_state[_decisions_key][_rec_fp] = "approved"
+                        _results_cache[_rec_fp] = {"status": "error", "channels_fired": [f"error: {_ex}"], "timestamp": datetime.now(timezone.utc).isoformat()}
                     st.rerun()
 
                 if _bc2.button("Snooze", key=f"snooze_{_rec.id}", type="secondary", disabled=_disabled, use_container_width=True):
                     _dec = HumanDecision(suggestion_id=_rec.id, user=(st.session_state.auth or {}).get("username", "demo"), outcome="snoozed", decided_at=datetime.now(timezone.utc))
                     _handler.record_decision(_dec)
-                    st.session_state[_decisions_key][_rec.id] = "snoozed"
+                    st.session_state[_decisions_key][_rec_fp] = "snoozed"
                     st.rerun()
 
                 if _bc3.button("Dismiss", key=f"dismiss_{_rec.id}", type="secondary", disabled=_disabled, use_container_width=True):
                     _dec = HumanDecision(suggestion_id=_rec.id, user=(st.session_state.auth or {}).get("username", "demo"), outcome="dismissed", decided_at=datetime.now(timezone.utc))
                     _handler.record_decision(_dec)
-                    st.session_state[_decisions_key][_rec.id] = "dismissed"
+                    st.session_state[_decisions_key][_rec_fp] = "dismissed"
                     st.rerun()
 
                 # (prominent decision banner at top of card already shows status)

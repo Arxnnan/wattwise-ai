@@ -1,0 +1,33 @@
+# WattWise AI - Base image (dependency layer only)
+# ============================================================================
+# Rebuild ONLY when requirements.txt changes. Downstream Dockerfile.streamlit.v2
+# does `FROM wattwise-base:v1` + COPY source, so code-change rebuilds take ~90s.
+#
+# Build:
+#   az acr build -r ww101942acr -t wattwise-base:v1 -f infra/Dockerfile.base .
+# ============================================================================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps (same as original Dockerfile.streamlit so parity is preserved)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgomp1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv (~10x faster resolver than pip for cold installs)
+RUN pip install --no-cache-dir --upgrade pip uv
+
+# Dependency layer. The --extra-index-url pulls the CPU-only torch wheel
+# (~400 MB smaller than CUDA default), which is what WattWise actually uses.
+COPY requirements.txt /app/requirements.txt
+RUN uv pip install --system --no-cache \
+    --index-strategy unsafe-best-match \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r /app/requirements.txt
+
+# Common runtime env — propagates to any child image unless overridden
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1

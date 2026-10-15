@@ -20,6 +20,12 @@ log = logging.getLogger(__name__)
 EventType = Literal["anomaly", "peak_warning", "optimization"]
 
 
+def _dashboard_url(view: str | None = None) -> str:
+    # Streamlit (operator UI) runs on 8501 locally; override via WATTWISE_DASHBOARD_URL for Azure.
+    base = os.getenv("WATTWISE_DASHBOARD_URL", "http://localhost:8501").rstrip("/")
+    return f"{base}/?view={view}" if view else base
+
+
 @dataclass
 class EnergyEvent:
     event_type: EventType
@@ -154,7 +160,7 @@ Readings
 AI narrative
     {event.narrative or "No narrative generated yet."}
 
-View the live dashboard: http://localhost:3001
+View the live dashboard: {_dashboard_url()}
 """
         html = _render_alert_html(event, type_label, explanation, delta, delta_pct)
         return self.send_mail(subject, text, html)
@@ -237,7 +243,7 @@ def _render_alert_html(
         </td></tr>
 
         <tr><td style="padding:28px 36px 32px 36px;">
-          <a href="http://localhost:3001" style="display:inline-block;background:#28B3B4;color:#0a1515;text-decoration:none;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;border-radius:2px;font-weight:600;">Open dashboard</a>
+          <a href="{_dashboard_url()}" style="display:inline-block;background:#28B3B4;color:#0a1515;text-decoration:none;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;border-radius:2px;font-weight:600;">Open dashboard</a>
         </td></tr>
 
         <tr><td style="padding:18px 36px 22px 36px;border-top:1px solid #152626;">
@@ -307,7 +313,7 @@ def render_decision_html(suggestion, decision, payload: dict) -> str:
         </td></tr>
 
         <tr><td style="padding:28px 36px 32px 36px;">
-          <a href="http://localhost:3001" style="display:inline-block;background:#28B3B4;color:#0a1515;text-decoration:none;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;border-radius:2px;font-weight:600;">Open audit log</a>
+          <a href="{_dashboard_url('Audit Log')}" style="display:inline-block;background:#28B3B4;color:#0a1515;text-decoration:none;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;border-radius:2px;font-weight:600;">Open audit log</a>
         </td></tr>
 
         <tr><td style="padding:18px 36px 22px 36px;border-top:1px solid #152626;">

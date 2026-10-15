@@ -99,7 +99,17 @@ function Track-Resource($type, $name) {
     $dup = $existing | Where-Object { $_.type -eq $type -and $_.name -eq $name }
     if (-not $dup) { $existing += @{ type = $type; name = $name } }
     $tracking = @{ deployed_at = $deployedAt; resources = $existing }
-    $tracking | ConvertTo-Json -Depth 5 | Set-Content $TRACKING_FILE -Encoding UTF8
+    $json = $tracking | ConvertTo-Json -Depth 5
+    # Retry on transient Windows file locks (AV scan, indexer)
+    for ($i = 0; $i -lt 8; $i++) {
+        try {
+            Set-Content -Path $TRACKING_FILE -Value $json -Encoding UTF8 -ErrorAction Stop
+            return
+        } catch [System.IO.IOException] {
+            Start-Sleep -Milliseconds 400
+        }
+    }
+    Set-Content -Path $TRACKING_FILE -Value $json -Encoding UTF8
 }
 
 function Resource-Exists {
@@ -313,6 +323,8 @@ $streamlitEnv = @"
             value: "http://localhost:9100/command"
           - name: APPLICATIONINSIGHTS_CONNECTION_STRING
             value: "$aiConn"
+          - name: WATTWISE_DASHBOARD_URL
+            value: "http://$DNS_LABEL.$LOCATION.azurecontainer.io:8501"
         secureEnvironmentVariables:
           - name: GROQ_API_KEY
             secureValue: "$($settings.GROQ_API_KEY)"
@@ -366,7 +378,16 @@ $streamlitEnv
 "@
 
 $yamlFile = Join-Path $PSScriptRoot "container-group.yaml"
-$yaml | Set-Content $yamlFile -Encoding UTF8
+# Retry on transient Windows file locks (AV scan, indexer)
+for ($__i = 0; $__i -lt 8; $__i++) {
+    try {
+        Set-Content -Path $yamlFile -Value $yaml -Encoding UTF8 -ErrorAction Stop
+        break
+    } catch [System.IO.IOException] {
+        if ($__i -eq 7) { throw }
+        Start-Sleep -Milliseconds 400
+    }
+}
 Write-OK ("YAML written to " + $yamlFile)
 
 Invoke-Az container create -g $RG --file $yamlFile --only-show-errors | Out-Null

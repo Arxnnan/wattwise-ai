@@ -213,22 +213,42 @@ def run_optimization_opportunity(days: int = 45) -> list[dict]:
     ]
 
 
-def send_alert(facility_id: str, event_type: str, message: str) -> dict:
-    """Send an alert through the trigger system."""
+def send_alert(
+    facility_id: str,
+    event_type: str,
+    message: str,
+    observed_value: float = 0.0,
+    expected_value: float = 0.0,
+    anomaly_score: float = 0.0,
+    device_id: str = "agent-system",
+) -> dict:
+    """Send an alert through the trigger system.
+
+    The chat / specialist agents call this tool after they've gathered facts
+    from their other tools (e.g. query_peak_hours → peak kW, forecast → expected
+    kW). Pass those numbers through so the ops email shows a real Readings
+    table instead of zeros.
+    """
     from triggers.handler import TriggerHandler, EnergyEvent
     handler = TriggerHandler()
     event = EnergyEvent(
         event_type=event_type,
         facility_id=facility_id,
-        device_id="agent-system",
+        device_id=device_id,
         timestamp=datetime.now(timezone.utc),
-        observed_value=0.0,
-        expected_value=0.0,
-        anomaly_score=0.0,
+        observed_value=float(observed_value),
+        expected_value=float(expected_value),
+        anomaly_score=float(anomaly_score),
         narrative=message,
     )
     sent = handler.fire(event)
-    return {"sent": sent, "facility": facility_id, "type": event_type}
+    return {
+        "sent": sent,
+        "facility": facility_id,
+        "type": event_type,
+        "observed_kw": float(observed_value),
+        "expected_kw": float(expected_value),
+    }
 
 
 # ── Tool registry ────────────────────────────────────────────
@@ -292,8 +312,20 @@ def get_all_tools() -> list[AgentTool]:
         ),
         AgentTool(
             name="send_alert",
-            description="Send an alert to the operations team",
-            parameters={"facility_id": "str", "event_type": "str (anomaly/peak_warning/optimization)", "message": "str"},
+            description=(
+                "Send an alert email to the operations team. Pass the actual "
+                "observed and expected kW (from your query tools) so the mail "
+                "shows a real Readings table — do NOT leave them at 0."
+            ),
+            parameters={
+                "facility_id": "str (office/warehouse/datacentre)",
+                "event_type": "str (anomaly/peak_warning/optimization)",
+                "message": "str — the narrative/explanation ops will read",
+                "observed_value": "float — current observed kW (required for real alerts)",
+                "expected_value": "float — expected/threshold/baseline kW",
+                "anomaly_score": "float 0-1 — 0 normal, 1 extreme",
+                "device_id": "str — e.g. off-main-01, or 'agent-system' if facility-wide",
+            },
             func=send_alert,
         ),
     ]

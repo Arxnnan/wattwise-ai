@@ -81,7 +81,7 @@ huggingface-hub>=0.24
 # ---- API + dashboard ----
 fastapi>=0.111
 uvicorn>=0.30
-streamlit>=1.36
+streamlit==1.61.1
 plotly>=5.22
 
 # ---- QA ----

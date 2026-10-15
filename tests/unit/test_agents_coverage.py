@@ -364,13 +364,39 @@ class TestToolsCoverage:
         assert out == {"drift_detected": False, "reason": "insufficient data for split"}
 
     def test_send_alert_success(self):
-        """Lines 218-231 — happy path through TriggerHandler."""
+        """Happy path through TriggerHandler with optional readings fields."""
         fake_handler = MagicMock()
         fake_handler.fire.return_value = True
         with patch("triggers.handler.TriggerHandler", return_value=fake_handler):
             out = send_alert("office", "anomaly", "hello")
-        assert out == {"sent": True, "facility": "office", "type": "anomaly"}
+        assert out == {
+            "sent": True,
+            "facility": "office",
+            "type": "anomaly",
+            "observed_kw": 0.0,
+            "expected_kw": 0.0,
+        }
         fake_handler.fire.assert_called_once()
+
+    def test_send_alert_passes_through_readings(self):
+        """When the agent provides observed/expected/score/device_id they must
+        reach the EnergyEvent so the ops email shows a real Readings table."""
+        fake_handler = MagicMock()
+        fake_handler.fire.return_value = True
+        with patch("triggers.handler.TriggerHandler", return_value=fake_handler):
+            out = send_alert(
+                "office", "peak_warning", "Peak projected",
+                observed_value=266.1, expected_value=200.0,
+                anomaly_score=0.85, device_id="off-main-01",
+            )
+        assert out["sent"] is True
+        assert out["observed_kw"] == 266.1
+        assert out["expected_kw"] == 200.0
+        event = fake_handler.fire.call_args.args[0]
+        assert event.observed_value == 266.1
+        assert event.expected_value == 200.0
+        assert event.anomaly_score == 0.85
+        assert event.device_id == "off-main-01"
 
     def test_send_alert_failure(self):
         fake_handler = MagicMock()

@@ -1,0 +1,173 @@
+{
+  "uid": "wattwise-demand",
+  "title": "WattWise AI - Demand Pattern Analysis",
+  "tags": ["wattwise", "demand", "peak-charge", "layer-5"],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "facility",
+        "type": "query",
+        "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+        "query": "SELECT DISTINCT facility_id FROM wattwise.telemetry ORDER BY facility_id",
+        "refresh": 1,
+        "current": {"text": "office", "value": "office"},
+        "label": "Facility"
+      },
+      {
+        "name": "threshold",
+        "type": "constant",
+        "query": "150",
+        "current": {"text": "150", "value": "150"},
+        "label": "Demand threshold (kW)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "15-min rolling demand vs threshold",
+      "gridPos": {"h": 11, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT toStartOfInterval(ts, INTERVAL 15 MINUTE) AS t, avg(value) AS kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime GROUP BY t ORDER BY t",
+          "format": 1
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": {"mode": "line"}
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 150, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Peak demand (period)",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 11},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT max(value) AS peak_kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime",
+          "format": 0
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 150, "color": "red"}
+            ]
+          }
+        }
+      },
+      "options": {"colorMode": "value", "graphMode": "none"}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Average demand",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 11},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT avg(value) AS avg_kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime",
+          "format": 0
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "kwatt", "color": {"mode": "fixed", "fixedColor": "blue"}}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Exceedances (crossings of threshold)",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 11},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT count() AS exceedances FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime AND value > ${threshold}",
+          "format": 0
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "orange"}, {"value": 10, "color": "red"}]}
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Estimated demand charge (peak x INR 150/kW/mo)",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 11},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT max(value) * 150 AS inr_per_month FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime",
+          "format": 0
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyINR",
+          "decimals": 0,
+          "color": {"mode": "fixed", "fixedColor": "orange"}
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Hourly demand pattern",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT toStartOfHour(ts) AS t, avg(value) AS avg_kW, max(value) AS peak_kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND facility_id = '$facility' AND ts >= $__fromTime AND ts <= $__toTime GROUP BY t ORDER BY t",
+          "format": 1
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "color": {"mode": "palette-classic"},
+          "custom": {"drawStyle": "bars", "fillOpacity": 50}
+        }
+      }
+    }
+  ]
+}

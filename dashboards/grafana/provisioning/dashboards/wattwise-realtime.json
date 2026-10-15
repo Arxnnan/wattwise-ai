@@ -1,0 +1,143 @@
+{
+  "uid": "wattwise-realtime",
+  "title": "WattWise AI - Real-Time Consumption",
+  "tags": ["wattwise", "realtime", "layer-5"],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "facility",
+        "type": "query",
+        "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+        "query": "SELECT DISTINCT facility_id FROM wattwise.telemetry ORDER BY facility_id",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": "office,warehouse,datacentre",
+        "current": {"text": "All", "value": "$__all"},
+        "label": "Facility"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Real-time demand (kW) by facility - main meter",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT toStartOfMinute(ts) AS t, facility_id, avg(value) AS kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND ts >= $__fromTime AND ts <= $__toTime GROUP BY t, facility_id ORDER BY t",
+          "format": 1
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["last", "max", "mean"]},
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Latest demand per facility",
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 10},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT facility_id AS metric, argMax(value, ts) AS kW FROM wattwise.telemetry WHERE domain = 'demand' AND device_class = 'main_meter' AND ts > now() - INTERVAL 5 MINUTE GROUP BY facility_id ORDER BY facility_id",
+          "format": 1
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 100, "color": "yellow"},
+              {"value": 150, "color": "red"}
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Consumption (kWh) by device class",
+      "gridPos": {"h": 10, "w": 16, "x": 8, "y": 10},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT toStartOfMinute(ts) AS t, device_class, sum(value) AS kWh FROM wattwise.telemetry WHERE domain = 'consumption' AND device_class IN ('main_meter','sub_meter','hvac','lighting') AND ts >= $__fromTime AND ts <= $__toTime GROUP BY t, device_class ORDER BY t",
+          "format": 1
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watth",
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "stacking": {"mode": "normal"},
+            "fillOpacity": 50,
+            "lineWidth": 1
+          }
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right"}
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Readings ingested (last 1h)",
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 15},
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "wattwise-clickhouse"},
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT count() AS rows FROM wattwise.telemetry WHERE ts >= now() - INTERVAL 1 HOUR",
+          "format": 0
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "fixed", "fixedColor": "blue"}
+        }
+      }
+    }
+  ]
+}

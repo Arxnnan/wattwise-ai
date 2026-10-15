@@ -70,3 +70,6 @@ Thumbs.db
 # Deployment artefacts (contain real ACR passwords + secrets at deploy time)
 infra/container-group.yaml
 infra/.deployed-resources.json
+
+# Microsoft Office lock files (created while PowerPoint/Word has a file open)
+~$*
